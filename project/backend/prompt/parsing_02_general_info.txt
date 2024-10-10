@@ -1,0 +1,173 @@
+Please extract the above [Resume] exactly according to the corresponding keys and values as the following headers in JSON minified format. 
+(Inside each header below are smaller headers, you must follow strictly that format and do not omit any that small headers even if you cannot find any information about it.)
+{
+  "personal_information": { (Please list all keys even when they have no values)
+    "full_name": "string",
+    "industry": "string", industry of this candidate in general, select one of the following list: #industry
+    "job_title": "string", current job title
+    "level": "string", select the best suitable level belongs to candidate (base on candidate history jobs) in list: #level, rules to select: 
+<<
+Intern: Temporary position for students or recent graduates to gain experience.
+Examples:
+a) Marketing Intern at a tech startup
+b) Engineering Intern at an automotive company
+c) Finance Intern at an investment bank
+Fresher: New graduate with no professional experience in their field.
+Examples:
+a) Fresher Software Developer at an IT company
+b) Fresher Mechanical Engineer at a manufacturing plant
+c) Fresher Accountant at a small business
+Junior: Entry-level position with 0-2 years of experience.
+Examples:
+a) Junior Graphic Designer at an advertising agency
+b) Junior Sales Representative for a pharmaceutical company
+c) Junior Research Analyst at a market research firm
+Mid-Level:Professionals with 2-5 years of experience in their field.
+Examples:
+a) Mid-Level Project Manager in construction
+b) Mid-Level Financial Analyst at a corporate bank
+c) Mid-Level Human Resources Specialist in a retail company
+Senior: Highly experienced professionals with 5+ years in their field.
+Examples:
+a) Senior Software Engineer at a major tech company
+b) Senior Marketing Specialist in a consumer goods company
+c) Senior Operations Manager in a logistics firm
+Leader: Experienced professional who guides and mentors a team.
+Examples:
+a) Team Leader in customer service department
+b) Project Leader for a software development team
+c) Research Team Leader in a pharmaceutical company
+Expert: Highly skilled professional with deep knowledge in a specific area.
+Examples:
+a) AI Expert at a research institution
+b) Cybersecurity Expert for a government agency
+c) Tax Law Expert at a large accounting firm
+Senior Expert: Top-level individual contributor with extensive experience and expertise.
+Examples:
+a) Senior Data Science Expert at a tech giant
+b) Senior Petroleum Engineering Expert in an oil company
+c) Senior UX Design Expert for a major e-commerce platform
+Consultant: Professional who provides expert advice in a specific field.
+Examples:
+a) Management Consultant for a strategy consulting firm
+b) IT Consultant for small businesses
+c) Environmental Consultant for construction projects
+Senior Consultant: Experienced consultant who handles complex projects and client relationships.
+Examples:
+a) Senior Financial Consultant at a Big Four firm
+b) Senior HR Consultant for organizational restructuring
+c) Senior Legal Consultant specializing in international law
+Assistant Manager: Entry-level management position, often supporting a full Manager.
+Examples:
+a) Assistant Manager in retail store operations
+b) Assistant Manager of a bank branch
+c) Assistant Manager in hotel food and beverage department
+Manager: Responsible for overseeing a team or a specific function.
+Examples:
+a) Project Manager in a construction company
+b) Marketing Manager for a consumer products brand
+c) Operations Manager in a manufacturing plant
+Senior Manager: Experienced manager often overseeing multiple teams or larger projects.
+Examples:
+a) Senior Sales Manager for a regional territory
+b) Senior Product Manager in a software company
+c) Senior Finance Manager overseeing multiple departments
+Deputy Director: Assists the Director in managing a department or function.
+Examples:
+a) Deputy Director of Human Resources in a large corporation
+b) Deputy Director of Public Relations for a government agency
+c) Deputy Director of Research at a university
+Director: Leads a department or major function within an organization.
+Examples:
+a) Director of Marketing for a national retail chain
+b) Director of Engineering at a tech company
+c) Director of Finance in a healthcare organization
+Senior Director: High-level leadership role overseeing multiple departments or large divisions.
+Examples:
+a) Senior Director of Global Supply Chain
+b) Senior Director of Product Development
+c) Senior Director of Customer Experience
+Head of Department: Top executive responsible for an entire functional area.
+Examples:
+a) Head of Legal Department for a multinational corporation
+b) Head of Research and Development in a pharmaceutical company
+c) Head of Information Technology for a financial institution
+General Manager: Oversees all operations of a specific business unit or location.
+Examples:
+a) General Manager of a hotel
+b) General Manager of a manufacturing plant
+c) General Manager of a regional sales division
+Vice President: High-ranking executive responsible for a major area of the company.
+Examples:
+a) Vice President of Sales for a global company
+b) Vice President of Human Resources in a large corporation
+c) Vice President of Product Development at a tech firm
+CXO (Chief X Officer): Top executive responsible for entire functional areas across the company.
+Examples:
+a) Chief Financial Officer (CFO) of a public company
+b) Chief Marketing Officer (CMO) of a retail chain
+c) Chief Technology Officer (CTO) of a software company
+General Director: Top executive role, often used interchangeably with CEO in some countries.
+Examples:
+a) General Director of a state-owned enterprise
+b) General Director of a multinational's country operations
+c) General Director of a large non-profit organization
+CEO (Chief Executive Officer): Highest-ranking executive responsible for overall company management.
+Examples:
+a) CEO of a Fortune 500 company
+b) CEO of a fast-growing tech startup
+c) CEO of a global non-profit organization
+Chairman: Head of the board of directors, often separate from the CEO role.
+Examples:
+a) Chairman of a major bank
+b) Chairman of a multinational conglomerate
+c) Chairman of a public company's board of directors 
+Note that, return Intern or Fresher,... (1 level)>>
+    "phone": "string",
+    "address": "string" (not include city, province or country)
+    "city/province": "string",
+    "country": "string",
+    "date_of_birth": "string", date format: YYYY-MM-DD
+    "gender": "string", return "male" or "female"
+    "linkedln": "string", linkedln address
+  },
+  "skills": ["string"]  (List of candidate's skills)
+  "education": ["list"] (Please list all keys even when they have no values.)
+    [{
+      "degree": "string",  The degree must be in ["High School", "College", "Bachelor", "Master", "Ph.D", "Postdoc"]
+      "institution_name": "string",
+      "major": "string",
+      "gpa": "string",
+      "start_time": "string", date format: YYYY-MM-DD
+      "end_time": "string" date format: YYYY-MM-DD (Return "NOW" if candidate is still here else return format: YYYY-MM-DD)
+    }],
+  "certificates": { 
+    "language_certificates": [{   (Please list all keys even when they have no values)
+        "language": "string", like English, Chinese, Japan,...
+        "certificate_name": "string", 
+        "certificate_point_level": "string",
+        "start_time": "string", date format: YYYY-MM-DD
+        "end_time": "string" date format: YYYY-MM-DD (Return "NOW" if candidate is still here else return format: YYYY-MM-DD)
+    }],
+    "other_certificates": [{  (Certificates that are not relevant to language certificates. Please list all keys even when they have no values (it's value will be "" in this case))
+        "certificate_name": "string",
+        "certificate_point": "string",
+        "start_time": "string", date format: YYYY-MM-DD
+        "end_time": "string" date format: YYYY-MM-DD (Return "NOW" if candidate is still here else return format: YYYY-MM-DD)
+      }]
+  },
+  "projects": [{  (Please list all keys even when they have no values)
+      "project_name": "string",
+      "start_time": "string", date format: YYYY-MM-DD
+      "end_time": "string" (Return "NOW" if candidate is still here else return format: YYYY-MM-DD)
+      "detailed_descriptions": ["string"] (List of candidate's project descriptions. Note as "" if no descriptions available),
+  }],
+  "objectives": "string" (candidate's working objectives, please include the orientations also. Note as "" if no objective available, max 100 words)
+  "awards": (Please list all keys even when they have no values)
+  [{
+    "award_name": "string",
+    "time": "string" date format: YYYY-MM-DD
+    "description": "string" (Detail descriptions about candidate's awards, max 100 words)
+  }],
+}
+Note: all datetime format must return YYYY-MM-DD, example: "2020-01-26", answer startswith "{" endswith "}", content inside must be translated to english

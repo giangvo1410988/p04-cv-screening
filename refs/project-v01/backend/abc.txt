@@ -1,0 +1,24 @@
+{
+    "personal_information": {
+        "full_name": "",
+        "industry": "",
+        "job_title": "",
+        "level": "",
+        "phone": "",
+        "address": "TANG 14, TOA NHA HM TOWM , 412 NGUYEN   THI MINH KHAI ,P 05, QUAN 03, TP HCM",
+        "city/province": "TP HCM",
+        "country": "Vietnam",
+        "date_of_birth": "",
+        "gender": "",
+        "linkedln": ""
+    },
+    "skills": [],
+    "education": [],
+    "certificates": {
+        "language_certificates": [],
+        "other_certificates": []
+    },
+    "projects": [],
+    "objectives": "",
+    "awards": []
+}

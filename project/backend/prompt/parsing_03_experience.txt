@@ -1,0 +1,19 @@
+Please extract the above [Resume] exactly according to the corresponding keys and values as the following headers in JSON minified format. 
+(Inside each header below are smaller headers, you must follow strictly that format and do not omit any that small headers even if you cannot find any information about it.)
+{
+  "summary": "string", sumary general experiences of candidate, (max 100 words)
+  "yoe": int, number year of experience
+  "work_experience": (Please list all keys even when they have no values. Do not combine companies together, please keep them separately. Note: Sort chronologically newest to oldest)
+  [{
+    "company_name": "string",
+    "job_title": "string",
+    "working_industry": "string", select one of the following list: #industry
+    "level": "string", select one of the following list: #level
+    "detailed_working_description": ["string"]  (List of string of detailed working descriptions, not included "start_time" and "end_time"),
+    "achievements": ["string"],
+    "start_time": "string", date format: YYYY-MM-DD
+    "end_time": "string", date format: YYYY-MM-DD (Return "NOW" if candidate is still here else return format: YYYY-MM-DD)
+  }],
+}
+Note: all datetime format must return YYYY-MM-DD, example: "2020-01-26", answer startswith "{" endswith "}", return correct json format, content inside must be translated to english
+

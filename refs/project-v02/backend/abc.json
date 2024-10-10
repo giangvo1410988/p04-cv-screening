@@ -1,0 +1,65 @@
+{
+    "personal_information": {
+        "full_name": "string",
+        "industry": "string",
+        "job_title": "string",
+        "level": "string",
+        "phone": "string",
+        "address": "string",
+        "city/province": "string",
+        "country": "string",
+        "date_of_birth": "string",
+        "gender": "string",
+        "linkedln": "string"
+    },
+    "skills": [
+        "string"
+    ],
+    "education": [
+        {
+            "degree": "string",
+            "institution_name": "string",
+            "major": "string",
+            "gpa": "string",
+            "start_time": "string",
+            "end_time": "string"
+        }
+    ],
+    "certificates": {
+        "language_certificates": [
+            {
+                "language": "string",
+                "certificate_name": "string",
+                "certificate_point_level": "string",
+                "start_time": "string",
+                "end_time": "string"
+            }
+        ],
+        "other_certificates": [
+            {
+                "certificate_name": "string",
+                "certificate_point": "string",
+                "start_time": "string",
+                "end_time": "string"
+            }
+        ]
+    },
+    "projects": [
+        {
+            "project_name": "string",
+            "start_time": "string",
+            "end_time": "string",
+            "detailed_descriptions": [
+                "string"
+            ]
+        }
+    ],
+    "objectives": "string",
+    "awards": [
+        {
+            "award_name": "string",
+            "time": "string",
+            "description": "string"
+        }
+    ]
+}
