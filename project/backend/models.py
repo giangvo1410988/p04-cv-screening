@@ -135,6 +135,7 @@ class Certificate(Base):
 
     cv_info = relationship("CVInfo", back_populates="certificates")
 
+    
 class Project(Base):
     __tablename__ = "cv_project"
 

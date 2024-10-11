@@ -9,7 +9,7 @@ from models import Base, User, Folder, File, JobDescription
 
 def setup_postgres():
     # Connect to PostgreSQL (default)
-    conn = psycopg2.connect(dbname='postgres', user='postgres', host='localhost', password='sharecv101')
+    conn = psycopg2.connect(dbname='postgres', user='postgres', host='127.0.0.1', password='a', port="54322")
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
 
@@ -48,12 +48,28 @@ def setup_postgres():
     cur.execute("GRANT ALL PRIVILEGES ON DATABASE cvscreening TO cvscreening_user")
     print("Privileges granted to 'cvscreening_user'.")
 
+    # Connect to the new database
     cur.close()
     conn.close()
 
+    conn = psycopg2.connect(dbname='cvscreening', user='postgres', host='127.0.0.1', password='a', port="54322")
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
+
+    # Grant CREATE privilege on the public schema
+    cur.execute("GRANT CREATE ON SCHEMA public TO cvscreening_user")
+    print("CREATE privilege on schema 'public' granted to 'cvscreening_user'.")
+
+    # Grant USAGE privilege on the public schema
+    cur.execute("GRANT USAGE ON SCHEMA public TO cvscreening_user")
+    print("USAGE privilege on schema 'public' granted to 'cvscreening_user'.")
+
+    cur.close()
+    conn.close()
+    
 def create_tables():
     # Database connection string
-    SQLALCHEMY_DATABASE_URL = "postgresql://cvscreening_user:cvscreening_user@localhost/cvscreening"
+    SQLALCHEMY_DATABASE_URL = "postgresql://cvscreening_user:cvscreening_user@localhost:54322/cvscreening"
 
     # Create SQLAlchemy engine
     engine = create_engine(SQLALCHEMY_DATABASE_URL)

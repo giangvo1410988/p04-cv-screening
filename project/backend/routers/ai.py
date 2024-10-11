@@ -107,5 +107,5 @@ def call_openAI(text="", api_key=""):
     token_in=chat_completion.usage.prompt_tokens
     return response_openai, token_in, token_out
 
-api_key = "sk-YqojbIFRP8lpP7opSdJ0MpxDuObbyu2cRE8WzT5czyT3BlbkFJ9ulezjJyKYdbKn0nqZ0Z8izB_g0V1EStEvSYYWlSwA"
+api_key = "sk-G38Ai7gpt2YT0MfKy2o1-q5KMmCqt4d3x0fdxb03UKT3BlbkFJPMZpKII6a4EhJYz-81n25Z_Sp8yYmdWQ1uUZojZ-gA"
 

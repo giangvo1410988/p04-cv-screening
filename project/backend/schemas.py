@@ -37,7 +37,7 @@ class User(UserBase):
     point: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class OTPVerify(BaseModel):
     username: str  # Can be username or email
@@ -57,14 +57,14 @@ class Folder(FolderBase):
     user_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class FolderWithDetails(Folder):
     num_files: int
     size: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class FileBase(BaseModel):
     filename: str
@@ -85,14 +85,14 @@ class File(FileBase):
     parsed_data: Optional[dict] = None
     class Config:
         from_attributes = True
-        orm_mode = True
+        from_attributes = True
 
 class FileUpdate(BaseModel):
     status: Optional[str] = None
 
     class Config:
         from_attributes = True
-        orm_mode = True
+        from_attributes = True
 
 class FileUploadResponse(BaseModel):
     uploaded_files: list[File]

@@ -72,32 +72,40 @@ def display_parsed_data(data):
     # Prepare data for the table
     table_data = []
     for cv in data:
+        # Handle the possibility of None values
         row = {
-            "Filename": cv['filename'],
-            "Status": cv['status'],
-            "File Type": cv['file_type'],
-            "Size (bytes)": cv['size'],
-            "Words": cv['words'],
-            "Pages": cv['number_page'],
-            "Language": cv['language'],
-            "Uploaded Date": cv['uploaded_date'],
+            "Filename": cv.get('filename', ''),
+            "Status": cv.get('status', ''),
+            "File Type": cv.get('file_type', ''),
+            "Size (bytes)": cv.get('size', ''),
+            "Words": cv.get('words', ''),
+            "Pages": cv.get('number_page', ''),
+            "Language": cv.get('language', ''),
+            "Uploaded Date": cv.get('uploaded_date', ''),
         }
         
-        parsed_data = cv['parsed_data']
-        personal_info = parsed_data.get('personal_information', {})
-        for key, value in personal_info.items():
-            row[f"Personal Info - {key.capitalize()}"] = value
-        
-        row["Skills"] = ", ".join(parsed_data.get('skills', []))
-        row["Objectives"] = parsed_data.get('objectives', '')
-        
-        # Add education, certificates, projects, and awards as JSON strings
-        # (You may want to process these differently depending on your needs)
-        row["Education"] = json.dumps(parsed_data.get('education', []))
-        row["Certificates"] = json.dumps(parsed_data.get('certificates', {}))
-        row["Projects"] = json.dumps(parsed_data.get('projects', []))
-        row["Awards"] = json.dumps(parsed_data.get('awards', []))
-        
+        parsed_data = cv.get('parsed_data', None)
+        if parsed_data:  # Only process if parsed_data is not None
+            personal_info = parsed_data.get('personal_information', {})
+            for key, value in personal_info.items():
+                row[f"Personal Info - {key.capitalize()}"] = value if value is not None else ''
+
+            row["Skills"] = ", ".join(parsed_data.get('skills', [])) if parsed_data.get('skills') is not None else ''
+            row["Objectives"] = parsed_data.get('objectives', '')
+
+            # Add education, certificates, projects, and awards as JSON strings
+            row["Education"] = json.dumps(parsed_data.get('education', [])) if parsed_data.get('education') is not None else ''
+            row["Certificates"] = json.dumps(parsed_data.get('certificates', {})) if parsed_data.get('certificates') is not None else ''
+            row["Projects"] = json.dumps(parsed_data.get('projects', [])) if parsed_data.get('projects') is not None else ''
+            row["Awards"] = json.dumps(parsed_data.get('awards', [])) if parsed_data.get('awards') is not None else ''
+        else:  # Handle cases where parsed_data is None
+            row["Skills"] = ""
+            row["Objectives"] = ""
+            row["Education"] = ""
+            row["Certificates"] = ""
+            row["Projects"] = ""
+            row["Awards"] = ""
+
         table_data.append(row)
     
     # Create and display the dataframe
