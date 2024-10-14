@@ -1,70 +1,65 @@
 {
     "personal_information": {
-        "full_name": "John Doe",
-        "industry": "IT - Software",
-        "job_title": "Software Engineer (Backend Developer)",
-        "level": "",
-        "phone": "123 456 -7890",
-        "address": "123 Street",
-        "city/province": "New York",
-        "country": "United States",
-        "date_of_birth": "",
-        "gender": "",
-        "linkedln": "linkedin.com/johndoe"
+        "full_name": "string",
+        "industry": "string",
+        "job_title": "string",
+        "level": "string",
+        "phone": "string",
+        "address": "string",
+        "city/province": "string",
+        "country": "string",
+        "date_of_birth": "string",
+        "gender": "string",
+        "linkedln": "string"
     },
     "skills": [
-        "Python",
-        "SQL",
-        "NoSQL",
-        "Docker",
-        "Kubernetes",
-        "AWS"
+        "string"
     ],
     "education": [
         {
-            "degree": "Bachelor",
-            "institution_name": "Tech University",
-            "major": "Computer Science",
-            "gpa": "3.8",
-            "start_time": "August 2015",
-            "end_time": "May 2019"
+            "degree": "string",
+            "institution_name": "string",
+            "major": "string",
+            "gpa": "string",
+            "start_time": "string",
+            "end_time": "string"
         }
     ],
     "certificates": {
         "language_certificates": [
             {
-                "language": "English",
-                "certificate_name": "TOEFL Certificate",
-                "certificate_point_level": "Advanced Level",
-                "start_time": "January 2018",
-                "end_time": ""
+                "language": "string",
+                "certificate_name": "string",
+                "certificate_point_level": "string",
+                "start_time": "string",
+                "end_time": "string"
             }
         ],
         "other_certificates": [
             {
-                "certificate_name": "AWS Certified Solutions Architect",
-                "certificate_point": "Associate",
-                "start_time": "March 2020",
-                "end_time": ""
+                "certificate_name": "string",
+                "certificate_point": "string",
+                "start_time": "string",
+                "end_time": "string"
             }
         ]
     },
     "projects": [
         {
-            "project_name": "E-commerce Platform",
-            "start_time": "January 2021",
-            "end_time": "June 2021",
+            "project_name": "string",
+            "start_time": "string",
+            "end_time": "string",
             "detailed_descriptions": [
-                "Designed and implemented a scalable e-commerce platform with user authentication, product catalog, and payment integrations."
+                "string"
             ]
         }
     ],
-    "objectives": "Backend developer skilled in API development and database optimization. Passionate about driving business growth through innovative software solutions.",
+    "objectives": "string",
     "awards": [
         {
-            "award_name": "Best Coder",
-            "time": "2020",
-            "description": "Awarded for outstanding performance in code optimization."
+            "award_name": "string",
+            "time": "string",
+            "description": "string"
         }
     ]
 }

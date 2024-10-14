@@ -5,6 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 from database import Base
+from pydantic import PostgresDsn
+from models import User, Folder, File, JobDescription, CVInfo, Education, Experience, Certificate, Project, Award, JobManagement
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -20,12 +22,24 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
+print(Base.metadata.tables.keys())  # Add this line to debugß
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-
+def get_database_uri():
+    return str(
+            PostgresDsn.build(
+                scheme="postgresql+asyncpg",
+                username='postgres',
+                password='a',
+                host='0.0.0.0',
+                port=54322,
+                path='cvscreening',
+            )
+        )
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -39,7 +53,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_uri()
     context.configure(
         url=url,
         target_metadata=target_metadata,

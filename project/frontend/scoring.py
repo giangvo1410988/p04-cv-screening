@@ -4,7 +4,7 @@ import pandas as pd
 import base64
 
 
-API_URL = "http://localhost:8000"  # Adjust this to your FastAPI backend URL
+API_URL = "http://localhost:8002"  # Adjust this to your FastAPI backend URL
 
 
 def cv_scoring(folder_id):

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # JWT and password hashing setup
 SECRET_KEY = "85e3eb235be45191af08db4ec8362efc6d6eded15c1d0c0bdc30c1cb36791507"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")

@@ -4,11 +4,10 @@ from typing import List
 import os
 import shutil
 from pathlib import Path
-
 import models, schemas
 from database import get_db
 from routers.auth import get_current_user
-
+from fastapi import Query
 router = APIRouter(prefix="/folders", tags=["folders"])
 
 UPLOAD_DIR = Path("static/upload_cv")
@@ -95,3 +94,55 @@ def delete_folder(folder_id: int, db: Session = Depends(get_db), current_user: s
     db.delete(db_folder)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{folder_id}/status")
+async def get_folder_status(
+    folder_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    # Query the JobManagement table for the folder status
+    job = db.query(models.JobManagement).filter(models.JobManagement.folder_id == folder_id).first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found for the given folder ID")
+
+    return job
+
+@router.get("/{folder_id}/status-summary")
+async def get_status_summary(
+    folder_id: int,  # Make sure folder_id is explicitly passed and typed
+    service_name: str,
+    folder_name: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    # Query the JobManagemesnt table for the specified folder and service
+    job = db.query(models.JobManagement).filter(
+        models.JobManagement.service_name == service_name,
+        models.JobManagement.folder_name == folder_name,
+        models.JobManagement.folder_id == folder_id  # Make sure this is an integer
+    ).first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found for the given folder name and service")
+
+    # Count the statuses of files within the folder
+    folder_files = db.query(models.File).filter(models.File.folder_id == job.folder_id).all()
+    total_files = len(folder_files)
+    status_counts = {}
+
+    for file in folder_files:
+        status = file.status
+        if status in status_counts:
+            status_counts[status] += 1
+        else:
+            status_counts[status] = 1
+
+    # Format the response to include the status counts out of the total files
+    status_summary = f"{service_name}:\n"
+    for status, count in status_counts.items():
+        status_summary += f"{status}: {count}/{total_files}\n"
+
+    return {"status_summary": status_summary.strip()}

@@ -3,7 +3,7 @@ import requests
 import streamlit as st
 import base64
 import pandas as pd
-
+from parsing import check_folder_status
 
 def folder_title(folder_name):
     ## Layout
@@ -154,10 +154,23 @@ def list_folders():
     else:
         for folder in folders:
             with st.container():
-                col1, col2, col3 = st.columns([3, 1, 1])
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                 with col1:
                     st.markdown(f"### 📁 {folder['name']}")
                     st.caption(f"{folder['num_files']} files | {folder['size']} bytes")
+                    
+                    # Call check_folder_status to display the parsing status
+                    check_folder_status(folder['id'])
+
+                    status_response = requests.get(
+                        f"{API_URL}/folders/{folder['id']}/status-summary?service_name=cv_parsing&folder_name={folder['name']}",
+                        headers={"Authorization": f"Bearer {st.session_state.token}"}
+                    )
+                    if status_response.status_code == 200:
+                        status_summary = status_response.json().get("status_summary", "")
+                        st.text(status_summary)
+                    else:
+                        st.warning("Not Parsing Data Yet")
                 with col2:
                     if st.button("Open", key=f"open_{folder['id']}"):
                         st.session_state.current_folder = folder['id']
@@ -169,6 +182,8 @@ def list_folders():
                             st.success(f"Folder '{folder['name']}' deleted successfully!")
                             st.rerun()
                 st.markdown("---")
+
+
 
 def delete_folder(folder_id):
     response = requests.delete(

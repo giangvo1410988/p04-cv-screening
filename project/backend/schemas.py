@@ -99,3 +99,18 @@ class FileUploadResponse(BaseModel):
     message: str
     duplicate_files: list[str]
     invalid_files: list[str]
+
+class JobStatus(str, Enum):
+    PARSING = "parsing"
+    PARSED_COMPLETE = "parsed_complete"
+    PARSED_APART = "parsed_apart"
+
+class JobManagement(BaseModel):
+    job_id: int
+    service_name: str
+    folder_name: str
+    status: JobStatus
+    folder_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True

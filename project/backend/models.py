@@ -24,14 +24,16 @@ class User(Base):
     cv_info = relationship("CVInfo", uselist=False, back_populates="user")
 
 class Folder(Base):
-    __tablename__ = "folders"  # Changed from "folder" to "folders"
+    __tablename__ = "folders"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="folders")
-    files = relationship("File", back_populates="folder")  # Changed "folde" to "folder"
+    files = relationship("File", back_populates="folder")
+    jobs = relationship("JobManagement", back_populates="folder")  
+
 
 class File(Base):
     __tablename__ = "files"  # Changed from "file" to "files"
@@ -158,3 +160,15 @@ class Award(Base):
     description = Column(Text)
 
     cv_info = relationship("CVInfo", back_populates="awards")
+
+class JobManagement(Base):
+    __tablename__ = "manage_job"
+
+    job_id = Column(Integer, primary_key=True, index=True)
+    service_name = Column(String, nullable=False)  # Possible values: 'cv_parsing', 'cv_scoring'
+    folder_name = Column(String, nullable=False)
+    status = Column(Enum("parsing", "parsed_complete", "parsed_apart", name="job_status"), nullable=False)
+
+    # Relationship examples if needed
+    folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
+    folder = relationship("Folder", back_populates="jobs")

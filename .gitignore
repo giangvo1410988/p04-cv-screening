@@ -16,7 +16,7 @@ ENV/
 .idea/
 *.swp
 *.swo
-
+*.pyc
 # Operating system files
 .DS_Store
 Thumbs.db

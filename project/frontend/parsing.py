@@ -8,35 +8,15 @@ import plotly.express as px
 from config import API_URL
 import time
 
+
 def ai_parsing(folder_id):
     st.subheader("AI Parsing")
 
-    # response = requests.get(f"{API_URL}/files?folder_id={folder_id}", headers={"Authorization": f"Bearer {st.session_state.token}"})
-    # if response.status_code == 200:
-    #     files = response.json()
-    #     if files:
-    #         df = pd.DataFrame(files)
-    #         df['Select'] = False
-    #         columns = ['Select', 'id', 'filename'] + [col for col in df.columns if col not in ['Select', 'id', 'filename']]
-    #         df = df[columns]
-            
-    #         edited_df = st.data_editor(
-    #             df,
-    #             hide_index=True,
-    #             column_config={
-    #                 "Select": st.column_config.CheckboxColumn(required=True),
-    #                 "filename": st.column_config.TextColumn(
-    #                     "Filename",
-    #                     help="File name",
-    #                     required=True,
-    #                 ),
-    #             },
-    #             disabled=df.columns.drop(['Select']),
-    #             key="file_table"
-    #         )
-                
     if st.button("Start Parsing"):
         parse_folder(folder_id)
+
+    if st.button("Check Parsing Status"):
+        check_folder_status(folder_id)
     # st.markdown("---")
 
 def parse_folder(folder_id):
@@ -46,8 +26,9 @@ def parse_folder(folder_id):
             headers={"Authorization": f"Bearer {st.session_state.token}"}
         )
         if response.status_code == 200:
-            st.success("Parsing completed successfully.")
+            st.success("Parsing started successfully.")
             
+            check_folder_status(folder_id)
             # Load the returned data
             data = response.json()
             
@@ -59,18 +40,40 @@ def parse_folder(folder_id):
             b64 = base64.b64encode(json_str.encode()).decode()
             href = f'<a href="data:file/json;base64,{b64}" download="parsed_data.json">Download JSON File</a>'
             st.markdown(href, unsafe_allow_html=True)
-            
-            st.session_state.parsing_started = True
         else:
             st.error(f"Failed to start parsing. Status code: {response.status_code}")
             st.error(f"Error message: {response.text}")
+
+def check_folder_status(folder_id):
+    url = f"{API_URL}/folders/{folder_id}/status"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {st.session_state.token}"}
+    )
+    if response.status_code == 200:
+        job = response.json()
+        if job["status"] == "parsing":
+            st.info("AI Parsing is in progress")
+        elif job["status"] == "parsed_complete":
+            st.success("Folder was parsed completely")
+        elif job["status"] == "parsed_apart":
+            st.warning("Folder parsed but there are some files that could not be completed")
+    else:
+        st.error("No parsing data found")
+
+
 
 def display_parsed_data(data):
     print("\n\n\n")
     print("==> data: ", data)
 
-    # Prepare data for the table
+    # Prepare data for the file overview table
     table_data = []
+    education_data = []
+    certificates_data = []
+    projects_data = []
+    awards_data = []
+
     for cv in data:
         # Handle the possibility of None values
         row = {
@@ -83,7 +86,7 @@ def display_parsed_data(data):
             "Language": cv.get('language', ''),
             "Uploaded Date": cv.get('uploaded_date', ''),
         }
-        
+
         parsed_data = cv.get('parsed_data', None)
         if parsed_data:  # Only process if parsed_data is not None
             personal_info = parsed_data.get('personal_information', {})
@@ -93,30 +96,77 @@ def display_parsed_data(data):
             row["Skills"] = ", ".join(parsed_data.get('skills', [])) if parsed_data.get('skills') is not None else ''
             row["Objectives"] = parsed_data.get('objectives', '')
 
-            # Add education, certificates, projects, and awards as JSON strings
-            row["Education"] = json.dumps(parsed_data.get('education', [])) if parsed_data.get('education') is not None else ''
-            row["Certificates"] = json.dumps(parsed_data.get('certificates', {})) if parsed_data.get('certificates') is not None else ''
-            row["Projects"] = json.dumps(parsed_data.get('projects', [])) if parsed_data.get('projects') is not None else ''
-            row["Awards"] = json.dumps(parsed_data.get('awards', [])) if parsed_data.get('awards') is not None else ''
-        else:  # Handle cases where parsed_data is None
-            row["Skills"] = ""
-            row["Objectives"] = ""
-            row["Education"] = ""
-            row["Certificates"] = ""
-            row["Projects"] = ""
-            row["Awards"] = ""
+            # Extract education, certificates, projects, and awards data
+            education_data.extend(parsed_data.get('education', []))
+            certificates_data.extend(parsed_data.get('certificates', {}).get('language_certificates', []))
+            certificates_data.extend(parsed_data.get('certificates', {}).get('other_certificates', []))
+            projects_data.extend(parsed_data.get('projects', []))
+            awards_data.extend(parsed_data.get('awards', []))
 
         table_data.append(row)
-    
-    # Create and display the dataframe
+
+    # Create and display the file overview dataframe
     df = pd.DataFrame(table_data)
-    st.dataframe(df)
-    
-    # Option to download as CSV
+    st.dataframe(df, use_container_width=True)
+
+    # Display Education Table
+    if education_data:
+        st.subheader("Education")
+        df_education = pd.DataFrame(education_data)
+        st.dataframe(df_education, use_container_width=True)
+
+    # Display Certificates Table
+    if certificates_data:
+        st.subheader("Certificates")
+        df_certificates = pd.DataFrame(certificates_data)
+        st.dataframe(df_certificates, use_container_width=True)
+
+    # Display Projects Table
+    if projects_data:
+        st.subheader("Projects")
+        df_projects = pd.DataFrame(projects_data)
+        st.dataframe(df_projects, use_container_width=True)
+
+    # Display Awards Table
+    if awards_data:
+        st.subheader("Awards")
+        df_awards = pd.DataFrame(awards_data)
+        st.dataframe(df_awards, use_container_width=True)
+
+    # Option to download all data as CSV
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
     href = f'<a href="data:file/csv;base64,{b64}" download="parsed_cv_data.csv">Download CSV File</a>'
     st.markdown(href, unsafe_allow_html=True)
+
+    # Option to download parsed education data
+    if education_data:
+        csv_education = pd.DataFrame(education_data).to_csv(index=False)
+        b64_education = base64.b64encode(csv_education.encode()).decode()
+        href_education = f'<a href="data:file/csv;base64,{b64_education}" download="education_data.csv">Download Education Data CSV</a>'
+        st.markdown(href_education, unsafe_allow_html=True)
+
+    # Option to download parsed certificates data
+    if certificates_data:
+        csv_certificates = pd.DataFrame(certificates_data).to_csv(index=False)
+        b64_certificates = base64.b64encode(csv_certificates.encode()).decode()
+        href_certificates = f'<a href="data:file/csv;base64,{b64_certificates}" download="certificates_data.csv">Download Certificates Data CSV</a>'
+        st.markdown(href_certificates, unsafe_allow_html=True)
+
+    # Option to download parsed projects data
+    if projects_data:
+        csv_projects = pd.DataFrame(projects_data).to_csv(index=False)
+        b64_projects = base64.b64encode(csv_projects.encode()).decode()
+        href_projects = f'<a href="data:file/csv;base64,{b64_projects}" download="projects_data.csv">Download Projects Data CSV</a>'
+        st.markdown(href_projects, unsafe_allow_html=True)
+
+    # Option to download parsed awards data
+    if awards_data:
+        csv_awards = pd.DataFrame(awards_data).to_csv(index=False)
+        b64_awards = base64.b64encode(csv_awards.encode()).decode()
+        href_awards = f'<a href="data:file/csv;base64,{b64_awards}" download="awards_data.csv">Download Awards Data CSV</a>'
+        st.markdown(href_awards, unsafe_allow_html=True)
+
 
 def check_parsing_status(folder_id):
     if not st.session_state.get('parsing_started', False):

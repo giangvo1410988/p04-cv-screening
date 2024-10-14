@@ -52,32 +52,79 @@ async def parse_folder(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    # Find the folder
     folder = db.query(models.Folder).filter(models.Folder.id == folder_id, models.Folder.user_id == current_user.id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
 
+    # Find files in the folder
     files = db.query(models.File).filter(models.File.folder_id == folder_id).all()
-    
+    if not files:
+        raise HTTPException(status_code=404, detail="No files found in the folder")
+
+    # Create a new JobManagement entry to track parsing
+    job = models.JobManagement(
+        service_name="cv_parsing",
+        folder_name=folder.name,
+        status="parsing",
+        folder_id=folder.id
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    # Start the parsing tasks for each file
     for file in files:
-        file.status = "parsing"
-        db.commit()
+        if file.status in ["new", "parsing", "unparsed"]:
+            file.status = "parsing"
+            db.commit()
 
-        file_path = UPLOAD_DIR / str(current_user.id) / folder.name / file.filename
-        background_tasks.add_task(parse_and_update_file, file.id, file_path, db)
-
+            file_path = UPLOAD_DIR / str(current_user.id) / folder.name / file.filename
+            background_tasks.add_task(parse_and_update_file, file.id, file_path, db, job.job_id)
+    
     return files
 
-def parse_and_update_file(file_id: int, file_path: Path, db: Session):
-    parsed_data = parse_cv(file_path)
-    
-    db_file = db.query(models.File).filter(models.File.id == file_id).first()
-    if db_file:
-        db_file.status = "parsed"
-        db_file.parsed_data = parsed_data
-        db.commit()
-        insert_cv_data(db, parsed_data, db_file.id)
 
+def parse_and_update_file(file_id: int, file_path: Path, db: Session, job_id: int):
+    try:
+        # Parse the file
+        parsed_data = parse_cv(file_path)
+        
+        # Update the file status to "parsed" and add parsed data
+        db_file = db.query(models.File).filter(models.File.id == file_id).first()
+        if db_file:
+            db_file.status = "parsed"
+            db_file.parsed_data = parsed_data
+            db.commit()
 
+            # Insert parsed CV data into the database
+            insert_cv_data(db, parsed_data, db_file.id)
+
+    except Exception as e:
+        # If an error occurs, set the file status to "failed"
+        db.rollback()
+        db_file = db.query(models.File).filter(models.File.id == file_id).first()
+        if db_file:
+            db_file.status = "failed"
+            db.commit()
+
+        # Optionally log the error
+        print(f"Failed to parse file {file_id}: {e}")
+
+    finally:
+        # Check if all files in the folder have completed parsing
+        job = db.query(models.JobManagement).filter(models.JobManagement.job_id == job_id).first()
+        if job:
+            folder_files = db.query(models.File).filter(models.File.folder_id == job.folder_id).all()
+
+            if all(file.status == "parsed" for file in folder_files):
+                job.status = "parsed_complete"
+            elif any(file.status == "failed" for file in folder_files):
+                job.status = "parsed_apart"
+            else:
+                job.status = "parsing"  # This means that some files are still being processed
+
+            db.commit()
 
 @router.get("/{folder_id}/status", response_model=List[schemas.File])
 async def get_parsing_status(
