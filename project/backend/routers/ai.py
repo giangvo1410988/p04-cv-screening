@@ -86,6 +86,46 @@ def prompt_experience(cv_text):
     {cv_text}
     """
 
+def prompt_job_description(job_description_text):
+    return f"""Please extract the above [Job Description] exactly according to the corresponding keys and values as the following headers in JSON minified format.
+    (Inside each header below are smaller headers, you must follow strictly that format and do not omit any of these small headers even if you cannot find any information about it.)
+
+    {{
+    "job_information": {{
+        "job_title": "string",
+        "industry": "string",
+        "company_name": "string",
+        "location": {{
+            "city": "string",
+            "country": "string"
+        }},
+        "employment_type": "string",
+        "level": "string",
+        "job_requirements": {{
+            "skills": ["string"],
+            "languages": ["string"],
+            "experience": {{
+                "years_of_experience": "integer",
+                "specific_experience": ["string"]
+            }},
+            "education": {{
+                "degree": "string",
+                "major": "string",
+                "institution": "string"
+            }}
+        }},
+        "responsibilities": ["string"],
+        "benefits": ["string"],
+        "salary": "string",
+        "start_time": "string", // date format: YYYY-MM-DD
+        "application_deadline": "string" // date format: YYYY-MM-DD
+    }}
+    }}
+
+    Job Description Text:
+    {job_description_text}
+    """
+
 
 def call_openAI(text="", api_key=""):
     client = OpenAI(api_key = api_key)

@@ -1,9 +1,9 @@
 # File: schemas.py
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, date
 
 class Role(str, Enum):
     ADMIN = "admin"
@@ -114,3 +114,70 @@ class JobManagement(BaseModel):
 
     class Config:
         from_attributes = True
+class CVInfoResponse(BaseModel):
+    id: Optional[int] = None
+    file_id: Optional[int] = None
+    user_id: Optional[int] = None
+    full_name: Optional[str] = None
+    industry: Optional[str] = None
+    job_title: Optional[str] = None
+    level: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city_province: Optional[str] = None
+    country: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    linkedin: Optional[str] = None
+    summary: Optional[str] = None
+    yoe: Optional[int] = None
+    skills: Optional[List[str]] = None
+    objectives: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+class JobLocation(BaseModel):
+    city: Optional[str] = None
+    country: Optional[str] = None
+
+class ExperienceRequirements(BaseModel):
+    years_of_experience: Optional[int] = None
+    specific_experience: Optional[List[str]] = []
+
+class EducationRequirements(BaseModel):
+    degree: Optional[str] = None
+    major: Optional[str] = None
+    institution: Optional[str] = None
+
+class JobRequirements(BaseModel):
+    skills: Optional[List[str]] = []
+    languages: Optional[List[str]] = []
+    experience: Optional[ExperienceRequirements] = None
+    education: Optional[EducationRequirements] = None
+
+class JobInformation(BaseModel):
+    job_title: Optional[str] = None
+    industry: Optional[str] = None
+    company_name: Optional[str] = None
+    location: Optional[JobLocation] = None
+    employment_type: Optional[str] = None
+    level: Optional[str] = None
+    job_requirements: Optional[JobRequirements] = None
+    responsibilities: Optional[List[str]] = []
+    benefits: Optional[List[str]] = []
+    salary: Optional[str] = None
+    start_time: Optional[date] = None  # Keep it Optional for better validation
+    application_deadline: Optional[date] = None  # Keep it Optional for better validation
+    def __init__(self, **data):
+        # Overwrite empty strings with None for date fields
+        if data.get("start_time") == "":
+            data["start_time"] = None
+        if data.get("application_deadline") == "":
+            data["application_deadline"] = None
+        super().__init__(**data)
+
+class JobDescription(BaseModel):
+    job_information: JobInformation
+
+    class Config:
+        orm_mode = True

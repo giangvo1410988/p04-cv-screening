@@ -11,6 +11,8 @@ from config import API_URL
 from init import set_page_config
 from account import login 
 import folder
+import search
+import matching
 import parsing
 import scoring
 
@@ -44,8 +46,8 @@ def main():
             st.markdown("<h1 style='text-align: center;'>AI Screening App</h1>", unsafe_allow_html=True)
             menu_choice = option_menu(
                 "Main Menu",
-                ["Folders"],
-                icons=['folder'],
+                ["Folders", "Search","Matching"],
+                icons=['folder', 'search','search'],
                 menu_icon="cast",
                 default_index=0,
             ) 
@@ -55,8 +57,11 @@ def main():
                 folder_view(st.session_state.current_folder, st.session_state.current_folder_name)
             else:
                 folder.list_folders()
+        
+        elif menu_choice == "Search":
+            search.search_candidates()
+        elif menu_choice == "Matching":
+            matching.job_description_search()
 
 if __name__ == "__main__":
     main()
-
-    
