@@ -47,7 +47,7 @@ def main():
             menu_choice = option_menu(
                 "Main Menu",
                 ["Folders", "Search","Matching"],
-                icons=['folder', 'search','search'],
+                icons=['folder', 'search','people'],
                 menu_icon="cast",
                 default_index=0,
             ) 

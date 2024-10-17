@@ -11,6 +11,8 @@ venv/
 env/
 ENV/
 project/backend/alembic/versions
+routers/__pycache__
+typesense-data
 # IDEs and editors
 .vscode/
 .idea/

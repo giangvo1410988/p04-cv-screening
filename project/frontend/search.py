@@ -2,7 +2,6 @@ from config import API_URL
 import requests
 import streamlit as st
 import pandas as pd
-from streamlit_tags import st_tags
 from pathlib import Path
 
 def search_candidates():
@@ -20,34 +19,50 @@ def search_candidates():
         folder_options = [folder['name'] for folder in folders]
         selected_folders = st.multiselect("Select Folders", folder_options)
 
-        # If folders are selected, show search filters
-        if selected_folders:
+        # Add a button to confirm folder selection
+        if st.button("Confirm Folders"):
+            if selected_folders:
+                # Fetch CV information for the selected folders
+                with st.spinner("Fetching CV information..."):
+                    response = requests.get(
+                        f"{API_URL}/search/fetch_cv_info",
+                        params={"folder_names": selected_folders},
+                        headers={"Authorization": f"Bearer {st.session_state.token}"}
+                    )
+                    if response.status_code == 200:
+                        cv_info = response.json()
+                        st.session_state.cv_info = cv_info  # Store fetched CV info in session state
+                        st.success("CV information fetched successfully. You can now fill in the search fields.")
+                    else:
+                        st.error("Failed to fetch CV information.")
+                        st.error(f"Error message: {response.text}")
+
+        # If folders are confirmed and CV information is available, display search filters
+        if selected_folders and "cv_info" in st.session_state:
             # Divide search filters into columns for a cleaner layout
             with st.form("search_form"):
                 col1, col2, col3 = st.columns([1, 1, 1])
-                
+
+                # Populate form fields with fetched CV information as suggestions
                 with col1:
-                    job_title = st.text_input("Job Title")
-                    industry = st.text_input("Industry")
-                    country = st.text_input("Country")
-                    degree = st.text_input("Degree")
+                    job_title = st.multiselect("Job Title", options=st.session_state.cv_info["job_titles"])
+                    industry = st.multiselect("Industry", options=st.session_state.cv_info["industries"])
+                    country = st.multiselect("Country", options=st.session_state.cv_info["countries"])
+                    degree = st.multiselect("Degree", options=st.session_state.cv_info["degrees"])
                     yoe = st.number_input("Years of Experience (Min)", min_value=0, max_value=30, value=0)
 
                 with col2:
                     current_job = st.text_input("Current Job")
-                    city = st.text_input("City")
+                    city = st.multiselect("City", options=st.session_state.cv_info["cities"])
                     language = st.text_input("Language")
-                    major = st.text_input("Major")
+                    major = st.multiselect("Major", options=st.session_state.cv_info["majors"])
                     point = st.number_input("Points (Min)", min_value=0, max_value=100, value=0)
 
                 with col3:
-                    # Use st_tags for dynamic input of multiple skills
-                    skills = st_tags(
-                        label="Skills",
-                        text="Add skills (press enter to add more)",
-                        value=[],
-                        suggestions=[],  # If you want to suggest some skills
-                        maxtags=20,
+                    # Use st.multiselect for skills with predefined suggestions
+                    skills = st.multiselect(
+                        "Skills",
+                        options=st.session_state.cv_info["skills"],
                     )
                     level = st.text_input("Level")
                     age = st.number_input("Age (Min)", min_value=0, max_value=70, value=0)
@@ -58,9 +73,9 @@ def search_candidates():
                 if search_button:
                     # Convert input values to None if they are 0 or empty
                     search_params = {
-                        "job_title": [job_title] if job_title else None,
+                        "job_title": job_title if job_title else None,
                         "current_job": [current_job] if current_job else None,
-                        "industry": [industry] if industry else None,
+                        "industry": industry if industry else None,
                         "city": city if city else None,
                         "country": country if country else None,
                         "language": [language] if language else None,

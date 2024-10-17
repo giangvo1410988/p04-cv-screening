@@ -1,6 +1,6 @@
 # File: schemas.py
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
 from enum import Enum
 from datetime import datetime, date
@@ -136,6 +136,7 @@ class CVInfoResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 class JobLocation(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
@@ -147,7 +148,6 @@ class ExperienceRequirements(BaseModel):
 class EducationRequirements(BaseModel):
     degree: Optional[str] = None
     major: Optional[str] = None
-    institution: Optional[str] = None
 
 class JobRequirements(BaseModel):
     skills: Optional[List[str]] = []
@@ -155,7 +155,7 @@ class JobRequirements(BaseModel):
     experience: Optional[ExperienceRequirements] = None
     education: Optional[EducationRequirements] = None
 
-class JobInformation(BaseModel):
+class JobDescription(BaseModel):
     job_title: Optional[str] = None
     industry: Optional[str] = None
     company_name: Optional[str] = None
@@ -163,21 +163,27 @@ class JobInformation(BaseModel):
     employment_type: Optional[str] = None
     level: Optional[str] = None
     job_requirements: Optional[JobRequirements] = None
-    responsibilities: Optional[List[str]] = []
-    benefits: Optional[List[str]] = []
     salary: Optional[str] = None
     start_time: Optional[date] = None  # Keep it Optional for better validation
-    application_deadline: Optional[date] = None  # Keep it Optional for better validation
-    def __init__(self, **data):
-        # Overwrite empty strings with None for date fields
-        if data.get("start_time") == "":
-            data["start_time"] = None
-        if data.get("application_deadline") == "":
-            data["application_deadline"] = None
-        super().__init__(**data)
 
-class JobDescription(BaseModel):
-    job_information: JobInformation
+    @validator('start_time', pre=True, always=True)
+    def check_dates(cls, value):
+        # If the value is "Not specified" or empty, return None
+        if value in ["Not specified", "", None]:
+            return None
+        return value
+
+    class Config:
+        orm_mode = True
+
+class CandidateCreate(BaseModel):
+    job_title: str
+    industry: str
+    city: str
+    country: str
+    skills: List[str]
+    degree: Optional[str] = None
+    major: Optional[str] = None
 
     class Config:
         orm_mode = True
