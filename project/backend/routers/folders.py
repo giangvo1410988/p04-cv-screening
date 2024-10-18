@@ -146,3 +146,37 @@ async def get_status_summary(
         status_summary += f"{status}: {count}/{total_files}\n"
 
     return {"status_summary": status_summary.strip()}
+
+@router.get("/{folder_id}/idsummary")
+async def get_id_status_summary(
+    folder_id: int,  # Make sure folder_id is explicitly passed and typed
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    # Query the JobManagemesnt table for the specified folder and service
+    job = db.query(models.JobManagement).filter(
+
+        models.JobManagement.folder_id == folder_id  # Make sure this is an integer
+    ).first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found for the given folder name and service")
+
+    # Count the statuses of files within the folder
+    folder_files = db.query(models.File).filter(models.File.folder_id == job.folder_id).all()
+    total_files = len(folder_files)
+    status_counts = {}
+
+    for file in folder_files:
+        status = file.status
+        if status in status_counts:
+            status_counts[status] += 1
+        else:
+            status_counts[status] = 1
+
+    # Format the response to include the status counts out of the total files
+    status_summary = ""
+    for status, count in status_counts.items():
+        status_summary += f"{status}: {count}/{total_files}\n"
+
+    return {"status_summary": status_summary.strip()}

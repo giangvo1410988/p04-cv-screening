@@ -4,7 +4,7 @@ from database import engine
 import models as models
 from routers import auth, folders, files
 from fastapi.staticfiles import StaticFiles
-from routers import parsing, scoring, search
+from routers import parsing, scoring, search, matching
 
 
 app = FastAPI()
@@ -29,6 +29,7 @@ app.include_router(files.router)
 app.include_router(parsing.router)
 app.include_router(scoring.router)
 app.include_router(search.router)
+app.include_router(matching.router)
 @app.get("/")
 async def root():
     return {"message": "Welcome to the CV Screening API"}

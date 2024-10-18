@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Enu
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import datetime
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, REAL
 
 from database import Base
 from schemas import Role
@@ -85,7 +85,8 @@ class CVInfo(Base):
     yoe = Column(Integer)
     skills = Column(ARRAY(String))
     objectives = Column(Text)
-    
+
+    embedding_vector = Column(ARRAY(REAL))  
     user = relationship("User", back_populates="cv_info")
     education = relationship("Education", back_populates="cv_info")
     experience = relationship("Experience", back_populates="cv_info")

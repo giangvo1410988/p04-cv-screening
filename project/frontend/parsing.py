@@ -17,6 +17,15 @@ def ai_parsing(folder_id):
 
     if st.button("Check Parsing Status"):
         check_folder_status(folder_id)
+    status_response = requests.get(
+        f"{API_URL}/folders/{folder_id}/idsummary",
+        headers={"Authorization": f"Bearer {st.session_state.token}"}
+    )
+    if status_response.status_code == 200:
+        status_summary = status_response.json().get("status_summary", "")
+        st.success(status_summary)
+    else:
+        st.warning("Not Parsing Data Yet")
     # st.markdown("---")
 
 def parse_folder(folder_id):

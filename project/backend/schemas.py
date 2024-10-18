@@ -114,6 +114,74 @@ class JobManagement(BaseModel):
 
     class Config:
         from_attributes = True
+# Education Response Schema
+class EducationResponse(BaseModel):
+    id: Optional[int] = None
+    degree: Optional[str] = None
+    institution_name: Optional[str] = None
+    major: Optional[str] = None
+    gpa: Optional[str] = None
+    start_time: Optional[date] = None
+    end_time: Optional[date] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Experience Response Schema
+class ExperienceResponse(BaseModel):
+    id: Optional[int] = None
+    company_name: Optional[str] = None
+    job_title: Optional[str] = None
+    working_industry: Optional[str] = None
+    level: Optional[str] = None
+    detailed_working_description: Optional[List[str]] = None
+    achievements: Optional[List[str]] = None
+    start_time: Optional[date] = None
+    end_time: Optional[date] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Certificate Response Schema
+class CertificateResponse(BaseModel):
+    id: Optional[int] = None
+    type: Optional[str] = None  # 'language' or 'other'
+    language: Optional[str] = None
+    certificate_name: Optional[str] = None
+    certificate_point_level: Optional[str] = None
+    start_time: Optional[date] = None
+    end_time: Optional[date] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Project Response Schema
+class ProjectResponse(BaseModel):
+    id: Optional[int] = None
+    project_name: Optional[str] = None
+    detailed_descriptions: Optional[List[str]] = None
+    start_time: Optional[date] = None
+    end_time: Optional[date] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Award Response Schema
+class AwardResponse(BaseModel):
+    id: Optional[int] = None
+    award_name: Optional[str] = None
+    time: Optional[date] = None
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# CVInfo Response Schema with Related Tables
 class CVInfoResponse(BaseModel):
     id: Optional[int] = None
     file_id: Optional[int] = None
@@ -134,6 +202,13 @@ class CVInfoResponse(BaseModel):
     skills: Optional[List[str]] = None
     objectives: Optional[str] = None
 
+    # Related tables
+    education: Optional[List[EducationResponse]] = None
+    experience: Optional[List[ExperienceResponse]] = None
+    certificates: Optional[List[CertificateResponse]] = None
+    projects: Optional[List[ProjectResponse]] = None
+    awards: Optional[List[AwardResponse]] = None
+
     class Config:
         from_attributes = True
 
@@ -142,18 +217,22 @@ class JobLocation(BaseModel):
     country: Optional[str] = None
 
 class ExperienceRequirements(BaseModel):
-    years_of_experience: Optional[int] = None
-    specific_experience: Optional[List[str]] = []
+    yoe: Optional[int] = None
 
 class EducationRequirements(BaseModel):
     degree: Optional[str] = None
     major: Optional[str] = None
+
+class PointsRange(BaseModel):
+    min_points: Optional[int] = None
+    max_points: Optional[int] = None
 
 class JobRequirements(BaseModel):
     skills: Optional[List[str]] = []
     languages: Optional[List[str]] = []
     experience: Optional[ExperienceRequirements] = None
     education: Optional[EducationRequirements] = None
+    points: Optional[PointsRange] = None  # Added points range
 
 class JobDescription(BaseModel):
     job_title: Optional[str] = None
@@ -168,13 +247,12 @@ class JobDescription(BaseModel):
 
     @validator('start_time', pre=True, always=True)
     def check_dates(cls, value):
-        # If the value is "Not specified" or empty, return None
         if value in ["Not specified", "", None]:
             return None
         return value
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CandidateCreate(BaseModel):
     job_title: str
@@ -186,4 +264,8 @@ class CandidateCreate(BaseModel):
     major: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class HybridSearchRequest(BaseModel):
+    query: str
+    # embedding: List[float]

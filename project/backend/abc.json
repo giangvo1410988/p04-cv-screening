@@ -1,65 +1,129 @@
 {
     "personal_information": {
-        "full_name": "string",
-        "industry": "string",
-        "job_title": "string",
-        "level": "string",
-        "phone": "string",
-        "address": "string",
-        "city/province": "string",
-        "country": "string",
-        "date_of_birth": "string",
-        "gender": "string",
-        "linkedln": "string"
+        "full_name": "Some Guy",
+        "industry": "Computer Science",
+        "job_title": "Course Coordinator/Section Leader",
+        "level": "",
+        "phone": "(777)-777-7777",
+        "address": "",
+        "city/province": "",
+        "country": "",
+        "date_of_birth": "",
+        "gender": "",
+        "linkedln": "",
+        "yoe": 5
     },
     "skills": [
-        "string"
+        "Python",
+        "Java",
+        "C",
+        "MIPS",
+        "MATLAB",
+        "Javascript"
     ],
     "education": [
         {
-            "degree": "string",
-            "institution_name": "string",
-            "major": "string",
-            "gpa": "string",
-            "start_time": "string",
-            "end_time": "string"
+            "degree": "Bachelor of Science",
+            "institution_name": "The University of Arizona",
+            "major": "Computer Science, Mathematics",
+            "gpa": "8.125",
+            "start_time": "2016-08-01",
+            "end_time": "2020-05-01"
         }
     ],
     "certificates": {
-        "language_certificates": [
-            {
-                "language": "string",
-                "certificate_name": "string",
-                "certificate_point_level": "string",
-                "start_time": "string",
-                "end_time": "string"
-            }
-        ],
-        "other_certificates": [
-            {
-                "certificate_name": "string",
-                "certificate_point": "string",
-                "start_time": "string",
-                "end_time": "string"
-            }
-        ]
+        "language_certificates": [],
+        "other_certificates": []
     },
     "projects": [
         {
-            "project_name": "string",
-            "start_time": "string",
-            "end_time": "string",
+            "project_name": "Zerg Rush",
+            "start_time": "",
+            "end_time": "",
             "detailed_descriptions": [
-                "string"
+                "Tower Defense application developed as a team-based Agile project with the use of Java and JavaFX.",
+                "Developed UML, game balance, audio system, and combat system"
+            ]
+        },
+        {
+            "project_name": "Chore-ganizer",
+            "start_time": "",
+            "end_time": "",
+            "detailed_descriptions": [
+                "Produced a demo of an application to streamline and incentivize chore organization for parents and children.",
+                "Implemented main UI through the use of Java/Android Studio."
+            ]
+        },
+        {
+            "project_name": "Chip-8 Emulator (In-Progress)",
+            "start_time": "",
+            "end_time": "",
+            "detailed_descriptions": [
+                "Emulation of the Chip-8 VM using C in order to recreate the CPU by managing opcodes, cycles, as well as audio and visuals using the SDL library"
             ]
         }
     ],
-    "objectives": "string",
+    "objectives": "",
     "awards": [
         {
-            "award_name": "string",
-            "time": "string",
-            "description": "string"
+            "award_name": "Deans List",
+            "time": "",
+            "description": "For 3 Semesters"
+        }
+    ],
+    "work_experience": [
+        {
+            "company_name": "University of Arizona",
+            "job_title": "Course Coordinator/Section Leader",
+            "start_time": "2018-08-01",
+            "end_time": "2023-10-01",
+            "job_descriptions": [
+                "Manages course materials and undergraduate teaching assistants.",
+                "Aiding the instructor in boosting student’s confidence and skill in computer science topics.",
+                "Assess student’s mathematical and programming skills in weekly assignments and sections, providing feedback for improvement through the leading of practice problems."
+            ],
+            "industry": "Education",
+            "achievements": "",
+            "level": ""
+        },
+        {
+            "company_name": "NP Photonics Inc",
+            "job_title": "Computer Science Intern",
+            "start_time": "2019-06-01",
+            "end_time": "2019-06-30",
+            "job_descriptions": [
+                "Deployed workflow automations to streamline tasks such as timesheets and work orders.",
+                "Reduced workflow to a near paperless system using Microsoft Flow, allowing the CTO to add future workflows as needed."
+            ],
+            "industry": "Technology",
+            "achievements": "",
+            "level": ""
+        },
+        {
+            "company_name": "University of Arizona",
+            "job_title": "Research Assistant",
+            "start_time": "2017-05-01",
+            "end_time": "2019-05-01",
+            "job_descriptions": [
+                "Devised initial algorithm to analyze covert channels in Android applications with static taint analysis to derive a method of preventing leakage of confidential information to malicious sources.",
+                "Implemented test android applications containing covert channels to break and strengthen the algorithm."
+            ],
+            "industry": "Education",
+            "achievements": "",
+            "level": ""
+        },
+        {
+            "company_name": "Statefarm Insurance",
+            "job_title": "IT/Systems Intern",
+            "start_time": "2018-05-01",
+            "end_time": "2018-07-31",
+            "job_descriptions": [
+                "Created UI/backend with JavaScript with React for a self-service portal that automates database management/alterations through service calls.",
+                "Used as an internal tool for several database teams within the company on a daily basis."
+            ],
+            "industry": "Insurance",
+            "achievements": "",
+            "level": ""
         }
     ]
 }

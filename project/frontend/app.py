@@ -29,8 +29,8 @@ def folder_view(folder_id, folder_name):
     parsing.ai_parsing(folder_id)
     st.markdown("---")
 
-    scoring.cv_scoring(folder_id)
-    st.markdown("---")
+    # scoring.cv_scoring(folder_id)
+    # st.markdown("---")
 
 def main():
     set_page_config()
