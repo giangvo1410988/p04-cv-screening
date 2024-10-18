@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import models
 import schemas
@@ -14,8 +14,6 @@ from .ai import generate_embedding
 import json
 import openai
 import numpy as np
-
-# Use your existing generate_embedding function
 
 router = APIRouter(prefix="/matching", tags=["matching"])
 UPLOAD_DIR = Path("static/upload_job_descriptions")
@@ -32,31 +30,8 @@ client = typesense.Client({
 })
 
 def serialize_candidate(candidate):
-    # Handle both dictionaries and objects
-    if isinstance(candidate, dict):
-        return {
-            "id": candidate.get("id"),
-            "full_name": candidate.get("full_name", ""),
-            "job_title": candidate.get("job_title", ""),
-            "industry": candidate.get("industry", ""),
-            "skills": candidate.get("skills", []),
-            "level": candidate.get("level", ""),
-            "gpa": candidate.get("gpa", None),
-            "years_of_experience": candidate.get("years_of_experience", 0),
-            # Add other fields as needed
-        }
-    else:
-        return {
-            "id": candidate.id,
-            "full_name": candidate.full_name or "",
-            "job_title": candidate.job_title or "",
-            "industry": candidate.industry or "",
-            "skills": candidate.skills or [],
-            "level": candidate.level or "",
-            "gpa": candidate.education[0].gpa if candidate.education and len(candidate.education) > 0 and candidate.education[0].gpa else None,
-            "years_of_experience": candidate.yoe or 0,
-            # Add other fields as needed
-        }
+    # Use the CVInfoResponse schema to serialize the candidate
+    return schemas.CVInfoResponse.from_orm(candidate).dict()
 
 # Helper function to calculate cosine similarity between two vectors
 def cosine_similarity(a, b, epsilon=1e-10):
@@ -228,11 +203,31 @@ async def hybrid_search_candidates(
     # Step 5: Combine and rank results from both full-text and embedding-based search
     combined_results = merge_and_rank_results(full_text_results, similarity_scores)
 
-    # Convert combined results to response format
-    response_data = [serialize_candidate(candidate) for candidate in combined_results]
+    # Step 6: Fetch detailed candidate data based on IDs
+    candidate_ids = [int(candidate['id']) for candidate in combined_results]
+    detailed_candidates = db.query(models.CVInfo).options(
+        joinedload(models.CVInfo.education),
+        joinedload(models.CVInfo.experience),
+        joinedload(models.CVInfo.certificates),
+        joinedload(models.CVInfo.projects),
+        joinedload(models.CVInfo.awards)
+    ).filter(models.CVInfo.id.in_(candidate_ids)).all()
+
+    # Map candidate IDs to detailed data
+    candidate_details_map = {candidate.id: candidate for candidate in detailed_candidates}
+
+    # Prepare response data
+    response_data = []
+    for candidate in combined_results:
+        candidate_id = int(candidate['id'])
+        if candidate_id in candidate_details_map:
+            detailed_candidate = candidate_details_map[candidate_id]
+            serialized_candidate = serialize_candidate(detailed_candidate)
+            response_data.append(serialized_candidate)
+        else:
+            print(f"Candidate ID {candidate_id} not found in detailed data.")
 
     return {"results": response_data}
-
 
 def merge_and_rank_results(full_text_results, embedding_results, alpha=0.5):
     """
@@ -262,12 +257,12 @@ def merge_and_rank_results(full_text_results, embedding_results, alpha=0.5):
         if candidate_id in combined_scores:
             combined_scores[candidate_id]['score'] += normalized_score
         else:
-            combined_scores[candidate_id] = {'data': serialize_candidate(candidate_data), 'score': normalized_score}
+            combined_scores[candidate_id] = {'data': {'id': candidate_id}, 'score': normalized_score}
 
     # Sort combined results
     sorted_results = sorted(combined_scores.values(), key=lambda x: x['score'], reverse=True)
 
-    # Return the sorted candidate data
+    # Return the sorted candidate data (only IDs for now)
     return [result['data'] for result in sorted_results]
 
 

@@ -35,7 +35,7 @@ def flatten_nested_fields(candidate):
     return candidate
 
 def search_candidates():
-    st.title("Candidate Search with PDF Preview")
+    st.title("Candidate Search")
 
     # Fetch folders for the current user
     response = requests.get(f"{API_URL}/folders", headers={"Authorization": f"Bearer {st.session_state.token}"})
