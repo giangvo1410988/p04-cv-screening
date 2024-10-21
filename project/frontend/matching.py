@@ -29,31 +29,32 @@ def create_nested_tables(job_description_data_copy):
     
     # Create main table (copy the relevant fields so the original data is unchanged)
     main_table = {
-        "job_title": job_description_data_copy["job_title"],
-        "industry": job_description_data_copy["industry"],
-        "company_name": job_description_data_copy["company_name"],
-        "employment_type": job_description_data_copy["employment_type"],
-        "level": job_description_data_copy["level"],
-        "salary": job_description_data_copy["salary"],
-        "start_time": job_description_data_copy["start_time"]
+        "job_title": job_description_data_copy.get("job_title", ""),
+        "industry": job_description_data_copy.get("industry", ""),
+        "company_name": job_description_data_copy.get("company_name", ""),
+        "level": job_description_data_copy.get("level", ""),
+        "salary": job_description_data_copy.get("salary", ""),
+        "start_time": job_description_data_copy.get("start_time", "")
     }
 
-    # Separate tables for nested fields
-    location_table = pd.DataFrame([job_description_data_copy["location"]])  # Extract location
-    age_range_table = pd.DataFrame([job_description_data_copy["age_range"]])  # Extract age range
-    
+    # Extract location fields
+    location_table = pd.DataFrame([job_description_data_copy.get("location", {})])
+
     # Extract job requirements
-    job_requirements = job_description_data_copy["job_requirements"]
-    skills_table = pd.DataFrame(job_requirements["skills"], columns=["skills"])
-    experience_table = pd.DataFrame([job_requirements["experience"]])
-    education_table = pd.DataFrame([job_requirements["education"]])
-    points_table = pd.DataFrame([job_requirements["points"]])
-    
+    job_requirements = job_description_data_copy.get("job_requirements", {})
+
+    # Create skills, experience, education, and points tables
+    skills_table = pd.DataFrame(job_requirements.get("skills", []), columns=["skills"])
+    experience_table = pd.DataFrame([job_requirements.get("experience", {})])
+    education_table = pd.DataFrame([job_requirements.get("education", {})])
+    points_table = pd.DataFrame([job_requirements.get("points", {})])
+
     # Convert the main table into a DataFrame
     main_table_df = pd.DataFrame([main_table])
-    
+
     # Return all the tables
-    return main_table_df, location_table, age_range_table, skills_table, experience_table, education_table, points_table
+    return main_table_df, location_table, skills_table, experience_table, education_table, points_table
+
 
 
 def job_description_search():
@@ -92,7 +93,6 @@ def job_description_search():
         (
             main_table_df, 
             location_table, 
-            age_range_table, 
             skills_table, 
             experience_table, 
             education_table, 
@@ -106,10 +106,6 @@ def job_description_search():
         # Display location table
         st.subheader("Location")
         st.dataframe(location_table)
-
-        # Display age range table
-        st.subheader("Age Range")
-        st.dataframe(age_range_table)
 
         # Display skills table
         st.subheader("Skills")
@@ -133,16 +129,14 @@ def job_description_search():
         # Button to search candidates based on job description
         if st.button("Find CV With AI"):
             with st.spinner("Searching for candidates using embedding and full-text search..."):
-                job_description_text = st.session_state.job_description_data['job_title']
+                job_description_text = st.session_state.job_description_data
 
                 # Prepare the payload
-                search_payload = {
-                    "query": job_description_text
-                }
+
                 # Send the request
                 search_response = requests.post(
                     f"{API_URL}/matching/hybrid_search",
-                    json=search_payload,  # Send as JSON payload
+                    json=st.session_state.job_description_data,  # Send as JSON payload
                     headers={"Authorization": f"Bearer {st.session_state.token}"}
                 )
 
