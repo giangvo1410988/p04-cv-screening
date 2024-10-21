@@ -118,12 +118,7 @@ def prompt_job_description(job_description_text):
         city: string,
         country: string
     }},
-    employment_type: string,
     level: string,
-    age_range: {{
-        min_age: integer,
-        max_age: integer
-    }},
     job_requirements: {{
         skills: [string],
         languages: [string],

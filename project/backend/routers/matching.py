@@ -47,11 +47,33 @@ async def hybrid_search_candidates(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
-    query = request.query
+    query_parts = []
 
+    # Add parts of the query based on the request fields
+    if request.job_title:
+        query_parts.append(request.job_title)
+    if request.industry:
+        query_parts.append(request.industry)
+    if request.location and request.location.city:
+        query_parts.append(request.location.city)
+    if request.location and request.location.country:
+        query_parts.append(request.location.country)
+    if request.job_requirements and request.job_requirements.skills:
+        query_parts.extend(request.job_requirements.skills)
+    if request.job_requirements and request.job_requirements.languages:
+        query_parts.extend(request.job_requirements.languages)
+    if request.job_requirements and request.job_requirements.education:
+        if request.job_requirements.education.degree:
+            query_parts.append(request.job_requirements.education.degree)
+        if request.job_requirements.education.major:
+            query_parts.append(request.job_requirements.education.major)
+
+    # Join all parts of the query with spaces
+    query = " ".join(query_parts)
+
+    
     # Use per-user collection
     collection_name = f"candidates_{current_user.id}"
-
     # Define the schema without 'user_id'
     schema = {
         "name": collection_name,
@@ -159,13 +181,15 @@ async def hybrid_search_candidates(
 
     # Step 2: Perform full-text search in Typesense
     search_query = {
-        "q": query,
-        "query_by": "job_title,skills,industry",
+        "q": query,  # Dynamically constructed from the request
+        "query_by": "job_title,industry,location_city,location_country,skills,languages,degree,major,level",
         "num_typos": 2,
-        "query_by_weights": "1,2,1",
-        "operator": "or",  # Ensure the search is less strict
-        "per_page": 100,   # Adjust as needed
+        "query_by_weights": "2,2,1,1,3,1,1,1,1,",
+        "operator": "or",
+        "per_page": 100,
+        "sort_by": "years_of_experience:desc",
     }
+
 
     try:
         full_text_response = client.collections[collection_name].documents.search(search_query)
@@ -174,8 +198,14 @@ async def hybrid_search_candidates(
             for hit in full_text_response.get('hits', [])
         ]
     except Exception as e:
-        print(f"Error during full-text search: {e}")
         raise HTTPException(status_code=500, detail=f"Error during full-text search: {e}")
+
+    # Generate embeddings based on the request data (e.g., job_title, skills)
+    try:
+        query_embedding = generate_embedding(query, api_key=ai.api_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating query embedding: {e}")
+
 
     # Step 3: Retrieve candidate embeddings and data from the database
     try:

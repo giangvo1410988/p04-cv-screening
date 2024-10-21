@@ -266,6 +266,35 @@ class CandidateCreate(BaseModel):
     class Config:
         from_attributes = True
 
+class Location(BaseModel):
+    city: Optional[str]
+    country: Optional[str]
+
+class Experience(BaseModel):
+    years_of_experience: Optional[int]
+    specific_experience: Optional[List[str]]
+
+class Education(BaseModel):
+    degree: Optional[str]
+    major: Optional[str]
+
+class Points(BaseModel):
+    min_points: Optional[int]
+    max_points: Optional[int]
+
+class JobRequirements_de(BaseModel):
+    skills: Optional[List[str]]
+    languages: Optional[List[str]]
+    experience: Optional[Experience]
+    education: Optional[Education]
+    points: Optional[Points]
+
 class HybridSearchRequest(BaseModel):
-    query: str
-    # embedding: List[float]
+    job_title: Optional[str]
+    industry: Optional[str]
+    company_name: Optional[str]
+    location: Optional[Location]
+    level: Optional[str]
+    job_requirements: Optional[JobRequirements_de]
+    salary: Optional[str]
+    start_time: Optional[str]
