@@ -283,9 +283,18 @@ async def search_candidates(
 
     # Format results
     results = []
+    seen_file_ids = set()  # Track seen file_ids
+
     for candidate in candidates:
         result = schemas.CVInfoResponse.from_orm(candidate[0]).dict()
         result["File Name"] = str(candidate[1])
+        
+        # Check if this file_id has been seen before
+        file_id = result.get("file_id")
+        if file_id in seen_file_ids:
+            continue  # Skip this result as we've seen this file_id before
+        
+        seen_file_ids.add(file_id)  # Add to seen file_ids
         
         # Add similarity scores
         offset = 2  # Skip CVInfo and filename
@@ -297,7 +306,12 @@ async def search_candidates(
             result["weighted_similarity"] = float(candidate[-1]) if candidate[-1] is not None else 0.0
         
         results.append(result)
-    print(result)
+
+    # Sort deduped results by weighted similarity (if it exists)
+    if results and "weighted_similarity" in results[0]:
+        results.sort(key=lambda x: x.get("weighted_similarity", 0), reverse=True)
+    
+    print(f"Found {len(results)} unique results after deduplication")
     return results
 
 @router.post("/fetch_cv_info")  # Changed to POST
