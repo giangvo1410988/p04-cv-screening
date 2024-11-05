@@ -60,159 +60,201 @@ def create_nested_tables(job_description_data_copy):
 def job_description_search():
     st.title("AI Resume Matching")
 
-    # Upload job description PDF
-    uploaded_file = st.file_uploader("Upload Job Description PDF", type=["pdf"])
-
-    if uploaded_file:
-        # Extract job description information
-        if st.button("Extract Information from PDF"):
-            with st.spinner("Extracting information from job description..."):
-                files = {"file": uploaded_file.getvalue()}
-                response = requests.post(
-                    f"{API_URL}/matching/parse",
-                    files=files,
-                    headers={"Authorization": f"Bearer {st.session_state.token}"}
-                )
-
-                if response.status_code == 200:
-                    job_description_data = response.json()
-                    st.session_state.job_description_data = job_description_data  # Store data in session state
-                    st.success("Job description extracted successfully.")
-                else:
-                    st.error(f"Failed to extract job description. Status code: {response.status_code}")
-                    st.error(f"Error message: {response.text}")
-
-    # Display the parsed job description data if it exists
-    if "job_description_data" in st.session_state:
-        st.subheader("Parsed Job Description Data")
-
-        # Make a copy of job_description_data to avoid modifying the original data
-        job_description_data_copy = st.session_state.job_description_data.copy()
-
-        # Separate nested fields into tables using the copied data
-        (
-            main_table_df, 
-            location_table, 
-            skills_table, 
-            experience_table, 
-            education_table, 
-            points_table
-        ) = create_nested_tables(job_description_data_copy)
-
-        # Display main table
-        st.subheader("Main Info")
-        st.dataframe(main_table_df)
-
-        # Display location table
-        st.subheader("Location")
-        st.dataframe(location_table)
-
-        # Display skills table
-        st.subheader("Skills")
-        st.dataframe(skills_table)
-
-        # Display experience table
-        st.subheader("Experience")
-        st.dataframe(experience_table)
-
-        # Display education table
-        st.subheader("Education")
-        st.dataframe(education_table)
-
-        # Display points table
-        st.subheader("Points")
-        st.dataframe(points_table)
-
-        # Embedding-based search option
-        st.subheader("AI Search")
-
-        # Button to search candidates based on job description
-        if st.button("Find CV With AI"):
-            with st.spinner("Searching for candidates using embedding and full-text search..."):
-                job_description_text = st.session_state.job_description_data
-
-                # Prepare the payload
-
-                # Send the request
-                search_response = requests.post(
-                    f"{API_URL}/matching/hybrid_search",
-                    json=st.session_state.job_description_data,  # Send as JSON payload
-                    headers={"Authorization": f"Bearer {st.session_state.token}"}
-                )
-
-            if search_response.status_code == 200:
-                response_data = search_response.json()
-                candidates = response_data.get('results', [])
-                if candidates:
-                    # Flatten nested fields
-                    candidates = [flatten_nested_fields(candidate) for candidate in candidates]
-                    # Store candidates in session state
-                    st.session_state.candidates = candidates
-                    st.success(f"Found {len(candidates)} candidates.")
-                else:
-                    st.warning("No candidates found.")
-            else:
-                st.error(f"Failed to search candidates. Status code: {search_response.status_code}")
-                st.error(f"Error message: {search_response.text}")
-
-    # Display candidates if they exist in session state
-    if 'candidates' in st.session_state:
-        # Check if 'candidate_table_data' exists to preserve selections
+    # Clear session state when starting new search
+    if st.button("Clear Previous Results"):
+        # Clear specific keys related to search results
+        if 'candidates' in st.session_state:
+            del st.session_state.candidates
         if 'candidate_table_data' in st.session_state:
-            df = st.session_state.candidate_table_data
-        else:
-            df = pd.DataFrame(st.session_state.candidates)
-            # Ensure 'file_id' is included
-            if 'file_id' not in df.columns:
-                st.error("The 'file_id' column is missing from the data.")
+            del st.session_state.candidate_table_data
+        st.success("Previous results cleared.")
+        st.rerun()  # Use st.rerun() instead of experimental_rerun
+
+    # Fetch folders for the current user first
+    response = requests.get(f"{API_URL}/folders", headers={"Authorization": f"Bearer {st.session_state.token}"})
+    if response.status_code == 200:
+        folders = response.json()
+        if not folders:
+            st.warning("You don't have any folders yet. Please create one to start searching.")
+            return
+
+        # Allow user to select folders
+        folder_options = [folder['name'] for folder in folders]
+        selected_folders = st.multiselect("Select Folders to Search In", folder_options)
+
+        if st.button("Confirm Folders"):
+            if selected_folders:
+                # Clear previous results when changing folders
+                if 'candidates' in st.session_state:
+                    del st.session_state.candidates
+                if 'candidate_table_data' in st.session_state:
+                    del st.session_state.candidate_table_data
+                st.session_state.selected_folders = selected_folders
+                st.success("Folders confirmed. You can now proceed with uploading the job description.")
+                st.rerun()  # Use st.rerun()
+            else:
+                st.warning("Please select at least one folder.")
                 return
-            df['Select'] = False  # Initialize 'Select' column
 
-        columns = ['Select'] + [col for col in df.columns if col != 'Select']
-        df = df[columns]
+        # Only show the rest of the interface if folders are selected
+        if "selected_folders" in st.session_state:
+            # Upload job description PDF
+            uploaded_file = st.file_uploader("Upload Job Description PDF", type=["pdf"])
 
-        # Display DataFrame with checkboxes
-        edited_df = st.data_editor(
-            df,
-            hide_index=True,
-            column_config={
-                "Select": st.column_config.CheckboxColumn(required=True),
-            },
-            disabled=df.columns.drop(['Select']),
-            key="candidate_table"
-        )
+            if uploaded_file:
+                # Extract job description information
+                if st.button("Extract Information from PDF"):
+                    with st.spinner("Extracting information from job description..."):
+                        files = {"file": uploaded_file.getvalue()}
+                        response = requests.post(
+                            f"{API_URL}/matching/parse",
+                            files=files,
+                            headers={"Authorization": f"Bearer {st.session_state.token}"}
+                        )
 
-        # Store the updated DataFrame including selections
-        st.session_state.candidate_table_data = edited_df
-
-        # Get selected candidates
-        selected_candidates = edited_df[edited_df['Select']]
-        st.session_state.selected_candidates = selected_candidates
-
-        if not selected_candidates.empty:
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                # Preview Selected Candidate
-                if st.button("Preview Selected Candidate"):
-                    if len(selected_candidates) == 1:
-                        selected_candidate = selected_candidates.iloc[0]
-                        file_id = selected_candidate.get("file_id")
-
-                        # Display PDF preview
-                        if file_id:
-                            pdf_display = view_file(file_id)
-                            if pdf_display:
-                                st.markdown(pdf_display, unsafe_allow_html=True)
-                            else:
-                                st.error("Failed to load the file preview.")
+                        if response.status_code == 200:
+                            job_description_data = response.json()
+                            st.session_state.job_description_data = job_description_data
+                            st.success("Job description extracted successfully.")
                         else:
-                            st.error("File ID is missing.")
-                    elif len(selected_candidates) > 1:
-                        st.warning("Please select only one candidate for preview.")
-                    else:
-                        st.warning("No candidate selected for preview.")
-        else:
-            st.info("No candidate selected.")
+                            st.error(f"Failed to extract job description. Status code: {response.status_code}")
+                            st.error(f"Error message: {response.text}")
+
+            # Display the parsed job description data if it exists
+            if "job_description_data" in st.session_state:
+                st.subheader("Parsed Job Description Data")
+
+                # Make a copy of job_description_data to avoid modifying the original data
+                job_description_data_copy = st.session_state.job_description_data.copy()
+
+                # Add selected folders to the job description data
+                job_description_data_copy['folder_names'] = st.session_state.selected_folders
+
+                # Separate nested fields into tables
+                (
+                    main_table_df,
+                    location_table,
+                    skills_table,
+                    experience_table,
+                    education_table,
+                    points_table
+                ) = create_nested_tables(job_description_data_copy)
+
+                # Display tables
+                st.subheader("Main Info")
+                st.dataframe(main_table_df)
+
+                st.subheader("Location")
+                st.dataframe(location_table)
+
+                st.subheader("Skills")
+                st.dataframe(skills_table)
+
+                st.subheader("Experience")
+                st.dataframe(experience_table)
+
+                st.subheader("Education")
+                st.dataframe(education_table)
+
+                st.subheader("Points")
+                st.dataframe(points_table)
+
+                # AI Search section
+                st.subheader("AI Search")
+
+                # Button to search candidates based on job description
+                if st.button("Find CV With AI"):
+                    # Clear previous results before new search
+                    if 'candidates' in st.session_state:
+                        del st.session_state.candidates
+                    if 'candidate_table_data' in st.session_state:
+                        del st.session_state.candidate_table_data
+
+                    with st.spinner("Searching for candidates using embedding and full-text search..."):
+                        search_payload = {
+                            **st.session_state.job_description_data,
+                            "folder_names": st.session_state.selected_folders
+                        }
+
+                        search_response = requests.post(
+                            f"{API_URL}/matching/hybrid_search",
+                            json=search_payload,
+                            headers={"Authorization": f"Bearer {st.session_state.token}"}
+                        )
+
+                        if search_response.status_code == 200:
+                            response_data = search_response.json()
+                            candidates = response_data.get('results', [])
+                            
+                            if candidates:
+                                # Process new results
+                                processed_candidates = [flatten_nested_fields(candidate) for candidate in candidates]
+                                
+                                # Create new DataFrame
+                                df = pd.DataFrame(processed_candidates)
+                                df['Select'] = False
+                                
+                                # Store in session state
+                                st.session_state.candidates = processed_candidates
+                                st.session_state.candidate_table_data = df
+                                
+                                st.success(f"Found {len(candidates)} candidates in the selected folders.")
+                                st.rerun()  # Use st.rerun()
+                            else:
+                                st.warning("No candidates found in the selected folders.")
+                        else:
+                            st.error(f"Failed to search candidates. Status code: {search_response.status_code}")
+                            st.error(f"Error message: {search_response.text}")
+
+            # Display candidates if they exist in session state
+            if 'candidates' in st.session_state and 'candidate_table_data' in st.session_state:
+                df = st.session_state.candidate_table_data
+                columns = ['Select'] + [col for col in df.columns if col != 'Select']
+                df = df[columns]
+
+                # Display DataFrame with checkboxes
+                edited_df = st.data_editor(
+                    df,
+                    hide_index=True,
+                    column_config={
+                        "Select": st.column_config.CheckboxColumn(required=True),
+                    },
+                    disabled=df.columns.drop(['Select']),
+                    key=f"candidate_table_{hash(str(df.values.tolist()))}"  # Unique key based on content
+                )
+
+                # Store the updated DataFrame including selections
+                st.session_state.candidate_table_data = edited_df
+
+                # Get selected candidates
+                selected_candidates = edited_df[edited_df['Select']]
+                st.session_state.selected_candidates = selected_candidates
+
+                if not selected_candidates.empty:
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        # Preview Selected Candidate
+                        if st.button("Preview Selected Candidate"):
+                            if len(selected_candidates) == 1:
+                                selected_candidate = selected_candidates.iloc[0]
+                                file_id = selected_candidate.get("file_id")
+
+                                if file_id:
+                                    pdf_display = view_file(file_id)
+                                    if pdf_display:
+                                        st.markdown(pdf_display, unsafe_allow_html=True)
+                                    else:
+                                        st.error("Failed to load the file preview.")
+                                else:
+                                    st.error("File ID is missing.")
+                            elif len(selected_candidates) > 1:
+                                st.warning("Please select only one candidate for preview.")
+                            else:
+                                st.warning("No candidate selected for preview.")
+                else:
+                    st.info("No candidate selected.")
+    else:
+        st.error(f"Failed to fetch folders. Status code: {response.status_code}")
 
 
 def flatten_nested_fields(candidate):

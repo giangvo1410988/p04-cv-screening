@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import PyPDF2
 from routers import ai
-from sqlalchemy import cast, Float, or_, func, and_
+from sqlalchemy import cast, Float, or_, func, and_, desc, literal
 import typesense
 import re 
 
@@ -17,7 +17,12 @@ router = APIRouter(prefix="/search", tags=["search"])
 UPLOAD_DIR = Path("static/upload_job_descriptions")
 
 
-### SQLAlchemy Search Implementation (For Non-Typesense Related Search) ###
+from sqlalchemy import func, or_, and_, desc, cast, Float, literal
+from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException
+from typing import List, Optional
+from datetime import datetime
+
 @router.post("/candidates")
 async def search_candidates(
     job_title: Optional[List[str]] = None,
@@ -25,22 +30,35 @@ async def search_candidates(
     industry: Optional[List[str]] = None,
     city: Optional[str] = None,
     country: Optional[str] = None,
-    old_range: Optional[List[int]] = None,  # A >= x >= B
+    old_range: Optional[List[int]] = None,
     language: Optional[List[str]] = None,
     skill: Optional[List[str]] = None,
     degree: Optional[str] = None,
     major: Optional[str] = None,
     level: Optional[List[str]] = None,
-    point_range: Optional[List[float]] = None,  # A >= x >= B
-    yoe_range: Optional[List[int]] = None,  # A >= x >= B
+    point_range: Optional[List[float]] = None,
+    yoe_range: Optional[List[int]] = None,
     status: Optional[str] = "AI-Checked",
     folder_names: Optional[List[str]] = None,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
-    SIMILARITY_THRESHOLD = 0.3  # Adjust this threshold based on how strict the matching should be
+    SIMILARITY_THRESHOLD = 0.3
     
-    # Find the folders based on user and folder names (case-insensitive)
+    # Define weights for different criteria
+    WEIGHTS = {
+        'job_title': 0.25,
+        'skill': 0.20,
+        'industry': 0.15,
+        'level': 0.10,
+        'degree': 0.10,
+        'major': 0.08,
+        'language': 0.05,
+        'city': 0.04,
+        'country': 0.03
+    }
+
+    # Find the folders
     if folder_names:
         folders = db.query(models.Folder).filter(
             models.Folder.user_id == current_user.id,
@@ -57,117 +75,240 @@ async def search_candidates(
     # Get file IDs from the folders
     file_ids = [file.id for folder in folders for file in folder.files]
 
-    # Start building the query with CVInfo table
-    query = db.query(models.CVInfo, models.File.filename).join(models.File, models.CVInfo.file_id == models.File.id).filter(models.CVInfo.file_id.in_(file_ids))
+    # Start building base query
+    base_query = db.query(
+        models.CVInfo,
+        models.File.filename
+    ).join(
+        models.File,
+        models.CVInfo.file_id == models.File.id
+    ).filter(
+        models.CVInfo.file_id.in_(file_ids)
+    )
 
-    # Collect all conditions to apply as 'OR' for relaxed matching
+    # Initialize lists for similarity calculations and conditions
+    similarity_conditions = []
     or_conditions = []
+    and_conditions = []
 
-    # Apply fuzzy matching filters for job title using trigram similarity
+    # Build similarity expressions and conditions for job title
     if job_title:
-        job_title_filters = [
-            func.similarity(models.CVInfo.job_title, jt) >= SIMILARITY_THRESHOLD for jt in job_title
-        ]
-        or_conditions.append(or_(*job_title_filters))
+        job_sim = func.greatest(*[
+            func.similarity(models.CVInfo.job_title, jt)
+            for jt in job_title
+        ]).label('job_title_similarity')
+        similarity_conditions.append((job_sim, WEIGHTS['job_title']))
+        or_conditions.extend([
+            func.similarity(models.CVInfo.job_title, jt) >= SIMILARITY_THRESHOLD
+            for jt in job_title
+        ])
 
-    # Fuzzy matching for current job titles from experience
+    # Handle current job search
     if current_job:
-        query = query.join(models.Experience)
+        base_query = base_query.join(models.Experience)
         current_job_filters = [
-            func.similarity(func.lower(models.Experience.job_title), cj.lower()) >= SIMILARITY_THRESHOLD for cj in current_job
+            func.similarity(func.lower(models.Experience.job_title), cj.lower()) >= SIMILARITY_THRESHOLD
+            for cj in current_job
         ]
-        or_conditions.append(or_(*current_job_filters))
+        or_conditions.extend(current_job_filters)
 
-    # Fuzzy matching for industry
+    # Handle industry similarity
     if industry:
-        industry_filters = [
-            func.similarity(models.CVInfo.industry, ind) >= SIMILARITY_THRESHOLD for ind in industry
-        ]
-        or_conditions.append(or_(*industry_filters))
+        industry_sim = func.greatest(*[
+            func.similarity(models.CVInfo.industry, ind)
+            for ind in industry
+        ]).label('industry_similarity')
+        similarity_conditions.append((industry_sim, WEIGHTS['industry']))
+        or_conditions.extend([
+            func.similarity(models.CVInfo.industry, ind) >= SIMILARITY_THRESHOLD
+            for ind in industry
+        ])
 
-    # Fuzzy matching for city
+    # Handle city similarity
     if city:
-        or_conditions.append(func.similarity(models.CVInfo.city_province, city) >= SIMILARITY_THRESHOLD)
+        city_sim = func.similarity(
+            models.CVInfo.city_province, city
+        ).label('city_similarity')
+        similarity_conditions.append((city_sim, WEIGHTS['city']))
+        or_conditions.append(
+            func.similarity(models.CVInfo.city_province, city) >= SIMILARITY_THRESHOLD
+        )
 
-    # Fuzzy matching for country
+    # Handle country similarity
     if country:
-        or_conditions.append(func.similarity(models.CVInfo.country, country) >= SIMILARITY_THRESHOLD)
+        country_sim = func.similarity(
+            models.CVInfo.country, country
+        ).label('country_similarity')
+        similarity_conditions.append((country_sim, WEIGHTS['country']))
+        or_conditions.append(
+            func.similarity(models.CVInfo.country, country) >= SIMILARITY_THRESHOLD
+        )
 
-    # Date range filtering for old_range (age)
+    # Handle age range
     if old_range and len(old_range) == 2:
-        or_conditions.append(models.CVInfo.date_of_birth.between(old_range[1], old_range[0]))
+        current_year = datetime.now().year
+        min_year = current_year - old_range[1]
+        max_year = current_year - old_range[0]
+        and_conditions.append(
+            models.CVInfo.date_of_birth.between(
+                f"{min_year}-01-01",
+                f"{max_year}-12-31"
+            )
+        )
 
-    # Fuzzy matching for languages
+    # Handle language search
     if language:
-        query = query.join(models.Certificate)
-        language_filters = [
-            func.similarity(func.lower(models.Certificate.language), lang.lower()) >= SIMILARITY_THRESHOLD for lang in language
-        ]
-        or_conditions.append(or_(*language_filters))
+        base_query = base_query.join(models.Certificate)
+        language_sim = func.greatest(*[
+            func.similarity(func.lower(models.Certificate.language), lang.lower())
+            for lang in language
+        ]).label('language_similarity')
+        similarity_conditions.append((language_sim, WEIGHTS['language']))
+        or_conditions.extend([
+            func.similarity(func.lower(models.Certificate.language), lang.lower()) >= SIMILARITY_THRESHOLD
+            for lang in language
+        ])
 
-    # Fuzzy matching for skills - prioritize skill matching
-    if skill:
-        skill_filters = [
-            func.array_to_string(models.CVInfo.skills, ' ').ilike(f"%{s.lower()}%") for s in skill
+    # Handle skills search
+    if skill and len(skill) > 0:
+        skill_matches = [
+            func.array_to_string(models.CVInfo.skills, ' ').ilike(f'%{s.lower()}%')
+            for s in skill
         ]
-        or_conditions.append(or_(*skill_filters))
+        skill_sim = (
+            func.sum(cast(expr, Float) for expr in skill_matches) / len(skill)
+        ).label('skill_similarity')
+        similarity_conditions.append((skill_sim, WEIGHTS['skill']))
+        or_conditions.extend(skill_matches)
 
-    # Conditionally join cv_education only once and filter for degree and major
+    # Handle education (degree and major)
     if degree or major:
-        query = query.join(models.Education)  # Only join once
+        base_query = base_query.join(models.Education)
         if degree:
+            degree_sim = func.similarity(
+                models.Education.degree, degree
+            ).label('degree_similarity')
+            similarity_conditions.append((degree_sim, WEIGHTS['degree']))
             or_conditions.append(models.Education.degree.ilike(f"%{degree}%"))
+        
         if major:
+            major_sim = func.similarity(
+                models.Education.major, major
+            ).label('major_similarity')
+            similarity_conditions.append((major_sim, WEIGHTS['major']))
             or_conditions.append(models.Education.major.ilike(f"%{major}%"))
 
-    # Fuzzy matching for level
+    # Handle level similarity
     if level:
-        level_filters = [
-            func.similarity(models.CVInfo.level, lvl) >= SIMILARITY_THRESHOLD for lvl in level
-        ]
-        or_conditions.append(or_(*level_filters))
+        level_sim = func.greatest(*[
+            func.similarity(models.CVInfo.level, lvl)
+            for lvl in level
+        ]).label('level_similarity')
+        similarity_conditions.append((level_sim, WEIGHTS['level']))
+        or_conditions.extend([
+            func.similarity(models.CVInfo.level, lvl) >= SIMILARITY_THRESHOLD
+            for lvl in level
+        ])
 
-    # Strict GPA filtering based on point_range
+    # Handle GPA range
     if point_range and len(point_range) == 2:
-        query = query.join(models.Education)
-        # Strictly exclude None and empty string values and filter GPA within range
-        or_conditions.append(
+        if not any(isinstance(t, models.Education) for t in base_query._join_entities):
+            base_query = base_query.join(models.Education)
+        and_conditions.append(
             and_(
-                models.Education.gpa.isnot(None),  # Ensure GPA is not None
-                models.Education.gpa != "",  # Exclude empty string values
-                cast(models.Education.gpa, Float).between(point_range[0], point_range[1])  # Ensure GPA is within range
+                models.Education.gpa.isnot(None),
+                models.Education.gpa != "",
+                cast(models.Education.gpa, Float).between(point_range[0], point_range[1])
             )
         )
 
-    # Strict Years of Experience (yoe) filtering based on yoe_range
+    # Handle years of experience range
     if yoe_range and len(yoe_range) == 2:
-        or_conditions.append(
+        and_conditions.append(
             and_(
-                models.CVInfo.yoe.isnot(None),  # Ensure yoe is not None
-                models.CVInfo.yoe.between(yoe_range[0], yoe_range[1])  # Ensure yoe is within range
+                models.CVInfo.yoe.isnot(None),
+                models.CVInfo.yoe.between(yoe_range[0], yoe_range[1])
             )
         )
 
-    # Apply 'OR' conditions for relaxed matching - keeps candidates if at least one field matches
+    # Build weighted score expression
+    if similarity_conditions:
+        score_terms = [
+            expr * weight
+            for expr, weight in similarity_conditions
+        ]
+        weighted_score = func.coalesce(sum(score_terms), 0.0).label('weighted_similarity')
+    else:
+        weighted_score = literal(1.0).label('weighted_similarity')
+
+    # Add similarity expressions to query
+    for expr, _ in similarity_conditions:
+        base_query = base_query.add_columns(expr)
+    base_query = base_query.add_columns(weighted_score)
+
+    # Add filtering conditions
     if or_conditions:
-        query = query.filter(or_(*or_conditions))
+        base_query = base_query.filter(or_(*or_conditions))
+    if and_conditions:
+        base_query = base_query.filter(and_(*and_conditions))
 
-    # Execute query and return results
-    candidates = query.all()
-
-    # Include file path in the response
-    return [
-        schemas.CVInfoResponse.from_orm(candidate[0]).dict() | {"File Name": str(candidate[1])}
-        for candidate in candidates
+    # Important: Group by all non-aggregated columns
+    group_by_columns = [
+        models.CVInfo.id,
+        models.CVInfo.file_id,
+        models.CVInfo.user_id,
+        models.CVInfo.full_name,
+        models.CVInfo.industry,
+        models.CVInfo.job_title,
+        models.CVInfo.level,
+        models.CVInfo.phone,
+        models.CVInfo.address,
+        models.CVInfo.city_province,
+        models.CVInfo.country,
+        models.CVInfo.date_of_birth,
+        models.CVInfo.gender,
+        models.CVInfo.linkedin,
+        models.CVInfo.summary,
+        models.CVInfo.yoe,
+        models.CVInfo.skills,
+        models.CVInfo.objectives,
+        models.File.filename
     ]
+    
+    # Apply grouping and ordering
+    final_query = base_query.group_by(*group_by_columns).order_by(desc('weighted_similarity'))
 
-@router.get("/fetch_cv_info")
+    # Execute query
+    candidates = final_query.all()
+
+    # Format results
+    results = []
+    for candidate in candidates:
+        result = schemas.CVInfoResponse.from_orm(candidate[0]).dict()
+        result["File Name"] = str(candidate[1])
+        
+        # Add similarity scores
+        offset = 2  # Skip CVInfo and filename
+        for i, (expr, _) in enumerate(similarity_conditions):
+            result[expr.name] = float(candidate[offset + i]) if candidate[offset + i] is not None else 0.0
+        
+        # Add weighted similarity
+        if similarity_conditions:
+            result["weighted_similarity"] = float(candidate[-1]) if candidate[-1] is not None else 0.0
+        
+        results.append(result)
+    print(result)
+    return results
+
+@router.post("/fetch_cv_info")  # Changed to POST
 async def fetch_cv_info(
-    folder_names: Optional[List[str]] = None,
+    data: dict,  # Changed to accept a dict
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
-    # Find folders based on user and folder names (case-insensitive)
+    folder_names = data.get("folder_names", [])
+    print("Received folder names:", folder_names)  # Debug print
+    
     if folder_names:
         folders = db.query(models.Folder).filter(
             models.Folder.user_id == current_user.id,
@@ -178,11 +319,14 @@ async def fetch_cv_info(
             models.Folder.user_id == current_user.id
         ).all()
 
+    # Rest of your code remains the same
     if not folders:
         raise HTTPException(status_code=404, detail="No matching folders found")
-
+    
     # Get file IDs from the folders
     file_ids = [file.id for folder in folders for file in folder.files]
+    
+    # Rest of your existing code...
 
     # Query CVInfo based on file IDs
     cv_infos = db.query(models.CVInfo).filter(models.CVInfo.file_id.in_(file_ids)).all()
@@ -195,7 +339,7 @@ async def fetch_cv_info(
     skills = list(set([skill for cv in cv_infos for skill in (cv.skills or [])]))
     degrees = list(set([edu.degree for cv in cv_infos for edu in cv.education if edu.degree]))
     majors = list(set([edu.major for cv in cv_infos for edu in cv.education if edu.major]))
-
+    print(job_titles)
     return {
         "job_titles": job_titles,
         "industries": industries,

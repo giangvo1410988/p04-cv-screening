@@ -25,7 +25,7 @@ client = typesense.Client({
         'port': '8108',
         'protocol': 'http'
     }],
-    'api_key': 'typesensemulti',  # Replace with your actual API key
+    'api_key': 'aivision',  # Replace with your actual API key
     'connection_timeout_seconds': 2
 })
 
@@ -43,38 +43,63 @@ def cosine_similarity(a, b, epsilon=1e-10):
 
 @router.post("/hybrid_search")
 async def hybrid_search_candidates(
-    request: schemas.HybridSearchRequest,
+    request: dict,  # Change to dict to accept the combined payload
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    # Extract folder names from the request
+    folder_names = request.pop('folder_names', [])
+    if not folder_names:
+        raise HTTPException(status_code=400, detail="Folder names are required")
+
+    # Convert remaining request to HybridSearchRequest
+    try:
+        search_request = schemas.HybridSearchRequest(**request)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid request format: {str(e)}")
+
+    # Prepare query text for embedding
     query_parts = []
 
-    # Add parts of the query based on the request fields
-    if request.job_title:
-        query_parts.append(request.job_title)
-    if request.industry:
-        query_parts.append(request.industry)
-    if request.location and request.location.city:
-        query_parts.append(request.location.city)
-    if request.location and request.location.country:
-        query_parts.append(request.location.country)
-    if request.job_requirements and request.job_requirements.skills:
-        query_parts.extend(request.job_requirements.skills)
-    if request.job_requirements and request.job_requirements.languages:
-        query_parts.extend(request.job_requirements.languages)
-    if request.job_requirements and request.job_requirements.education:
-        if request.job_requirements.education.degree:
-            query_parts.append(request.job_requirements.education.degree)
-        if request.job_requirements.education.major:
-            query_parts.append(request.job_requirements.education.major)
+    def add_to_query(text):
+        if text and isinstance(text, (str, int, float)):
+            query_parts.append(str(text))
+        elif isinstance(text, list):
+            query_parts.extend([str(item) for item in text if item])
 
-    # Join all parts of the query with spaces
-    query = " ".join(query_parts)
-
+    # Build query text from all relevant fields
+    if search_request.job_title:
+        add_to_query(f"job title: {search_request.job_title}")
     
+    if search_request.industry:
+        add_to_query(f"industry: {search_request.industry}")
+    
+    if search_request.location:
+        if search_request.location.city:
+            add_to_query(f"city: {search_request.location.city}")
+        if search_request.location.country:
+            add_to_query(f"country: {search_request.location.country}")
+    
+    if search_request.job_requirements:
+        if search_request.job_requirements.skills:
+            add_to_query(f"skills: {', '.join(search_request.job_requirements.skills)}")
+        
+        if search_request.job_requirements.languages:
+            add_to_query(f"languages: {', '.join(search_request.job_requirements.languages)}")
+        
+        if search_request.job_requirements.education:
+            if search_request.job_requirements.education.degree:
+                add_to_query(f"degree: {search_request.job_requirements.education.degree}")
+            if search_request.job_requirements.education.major:
+                add_to_query(f"major: {search_request.job_requirements.education.major}")
+
+    # Join all parts with proper spacing and ensure it's a string
+    query_text = " . ".join(query_parts).strip()
+    if not query_text:
+        query_text = "general candidate search"  # Fallback if no specific criteria
+
     # Use per-user collection
     collection_name = f"candidates_{current_user.id}"
-    # Define the schema without 'user_id'
     schema = {
         "name": collection_name,
         "fields": [
@@ -94,49 +119,43 @@ async def hybrid_search_candidates(
         "default_sorting_field": "years_of_experience"
     }
 
-    # Create collection if it doesn't exist
+    # Create/retrieve Typesense collection
     try:
         client.collections[collection_name].retrieve()
     except typesense.exceptions.ObjectNotFound:
         try:
             client.collections.create(schema)
-            print(f"Collection '{collection_name}' created successfully.")
         except Exception as e:
-            print(f"Failed to create collection: {e}")
             raise HTTPException(status_code=500, detail=f"Error creating collection: {e}")
-    except Exception as e:
-        print(f"Error retrieving collection: {e}")
-        raise HTTPException(status_code=500, detail=f"Error accessing collection: {e}")
 
-    # Fetch candidates from the database
+    # Fetch candidates from specified folders
     try:
-        # Step 1: Get folder IDs for the current user
-        folder_ids = db.query(models.Folder.id).filter(models.Folder.user_id == current_user.id).all()
-        folder_ids = [id for (id,) in folder_ids]  # Unpack tuples
+        # Get CVs from specified folders using case-insensitive comparison
+        query = db.query(models.CVInfo).join(
+            models.File, models.CVInfo.file_id == models.File.id
+        ).join(
+            models.Folder, models.File.folder_id == models.Folder.id
+        ).filter(
+            models.Folder.user_id == current_user.id,
+            func.lower(models.Folder.name).in_([name.lower() for name in folder_names])
+        ).options(  # Add eager loading
+            joinedload(models.CVInfo.education),
+            joinedload(models.CVInfo.experience),
+            joinedload(models.CVInfo.certificates),
+            joinedload(models.CVInfo.projects),
+            joinedload(models.CVInfo.awards)
+        )
 
-        if not folder_ids:
-            return {"results": []}  # No folders for the user
-
-        # Step 2: Get file IDs in those folders
-        file_ids = db.query(models.File.id).filter(models.File.folder_id.in_(folder_ids)).all()
-        file_ids = [id for (id,) in file_ids]
-
-        if not file_ids:
-            return {"results": []}  # No files in the user's folders
-
-        # Step 3: Get CVInfo entries associated with those file IDs
-        candidates = db.query(models.CVInfo).filter(models.CVInfo.file_id.in_(file_ids)).all()
+        candidates = query.all()
 
         if not candidates:
-            return {"results": []}  # No CVInfo entries associated with the user's files
+            return {"results": []}
 
     except Exception as e:
-        print(f"Error fetching candidates: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching candidates: {e}")
 
     # Prepare data for indexing
     candidates_data = []
-
     for candidate in candidates:
         candidate_data = {
             "id": str(candidate.id),
@@ -145,7 +164,7 @@ async def hybrid_search_candidates(
             "location_city": candidate.city_province or "",
             "location_country": candidate.country or "",
             "skills": candidate.skills or [],
-            "languages": [],  # Add languages if available
+            "languages": [],
             "degree": candidate.education[0].degree if candidate.education and len(candidate.education) > 0 else "",
             "major": candidate.education[0].major if candidate.education and len(candidate.education) > 0 else "",
             "level": candidate.level or "",
@@ -154,34 +173,26 @@ async def hybrid_search_candidates(
         }
         candidates_data.append(candidate_data)
 
-    # Index data into Typesense using bulk import
+    # Index data into Typesense
     try:
-        # Prepare data in JSONL format
         documents = "\n".join([json.dumps(candidate) for candidate in candidates_data])
         import_response = client.collections[collection_name].documents.import_(
             documents,
-            {'action': 'upsert'}  # Use 'upsert' to update existing records
+            {'action': 'upsert'}
         )
-        # Check import response for errors
-        for line in import_response.split('\n'):
-            if line.strip():
-                result = json.loads(line)
-                if not result.get('success', False):
-                    print(f"Error importing document ID {result.get('id')}: {result.get('error')}")
     except Exception as e:
-        print(f"Error indexing data: {e}")
         raise HTTPException(status_code=500, detail=f"Error indexing data: {e}")
 
-    # Step 1: Generate the embedding on the server
+    # Generate query embedding
     try:
-        query_embedding = generate_embedding(query, api_key=ai.api_key)
+        query_embedding = generate_embedding(query_text, api_key=ai.api_key)
     except Exception as e:
-        print(f"Error generating query embedding: {e}")
-        raise HTTPException(status_code=500, detail=f"Error generating query embedding: {e}")
+        print(f"Error generating embedding for query: {query_text}")  # Debug print
+        raise HTTPException(status_code=500, detail=f"Error generating query embedding: {str(e)}")
 
-    # Step 2: Perform full-text search in Typesense
+    # Perform full-text search
     search_query = {
-        "q": query,  # Dynamically constructed from the request
+        "q": query_text,
         "query_by": "job_title,industry,location_city,location_country,skills,languages,degree,major,level",
         "num_typos": 2,
         "query_by_weights": "2,2,1,1,3,1,1,1,1,",
@@ -189,7 +200,6 @@ async def hybrid_search_candidates(
         "per_page": 100,
         "sort_by": "years_of_experience:desc",
     }
-
 
     try:
         full_text_response = client.collections[collection_name].documents.search(search_query)
@@ -200,16 +210,8 @@ async def hybrid_search_candidates(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during full-text search: {e}")
 
-    # Generate embeddings based on the request data (e.g., job_title, skills)
+    # Perform embedding-based search
     try:
-        query_embedding = generate_embedding(query, api_key=ai.api_key)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating query embedding: {e}")
-
-
-    # Step 3: Retrieve candidate embeddings and data from the database
-    try:
-        # Use the candidates fetched earlier
         candidates_embeddings = []
         candidates_data_list = []
         for candidate in candidates:
@@ -218,22 +220,19 @@ async def hybrid_search_candidates(
                 candidates_embeddings.append(candidate_embedding)
                 candidates_data_list.append(candidate)
     except Exception as e:
-        print(f"Error retrieving candidate embeddings: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving candidate embeddings: {e}")
 
-    # Step 4: Perform embedding-based similarity search
+    # Calculate similarity scores
     similarity_scores = []
     for candidate_embedding, candidate_data in zip(candidates_embeddings, candidates_data_list):
         score = cosine_similarity(query_embedding, candidate_embedding)
         similarity_scores.append((score, candidate_data))
 
-    # Sort candidates based on similarity score
+    # Combine and rank results
     similarity_scores.sort(key=lambda x: x[0], reverse=True)
-
-    # Step 5: Combine and rank results from both full-text and embedding-based search
     combined_results = merge_and_rank_results(full_text_results, similarity_scores)
 
-    # Step 6: Fetch detailed candidate data based on IDs
+    # Fetch detailed candidate data
     candidate_ids = [int(candidate['id']) for candidate in combined_results]
     detailed_candidates = db.query(models.CVInfo).options(
         joinedload(models.CVInfo.education),
@@ -243,10 +242,8 @@ async def hybrid_search_candidates(
         joinedload(models.CVInfo.awards)
     ).filter(models.CVInfo.id.in_(candidate_ids)).all()
 
-    # Map candidate IDs to detailed data
+    # Prepare response
     candidate_details_map = {candidate.id: candidate for candidate in detailed_candidates}
-
-    # Prepare response data
     response_data = []
     for candidate in combined_results:
         candidate_id = int(candidate['id'])
@@ -254,9 +251,7 @@ async def hybrid_search_candidates(
             detailed_candidate = candidate_details_map[candidate_id]
             serialized_candidate = serialize_candidate(detailed_candidate)
             response_data.append(serialized_candidate)
-        else:
-            print(f"Candidate ID {candidate_id} not found in detailed data.")
-
+    print(response_data)
     return {"results": response_data}
 
 def merge_and_rank_results(full_text_results, embedding_results, alpha=0.5):

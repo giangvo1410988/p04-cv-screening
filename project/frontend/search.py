@@ -6,33 +6,102 @@ from config import API_URL
 
 def flatten_nested_fields(candidate):
     """Helper function to flatten nested fields for display."""
-    # Flattening education
+    flattened = {}
+    
+    # Copy simple fields
+    for key, value in candidate.items():
+        if key not in ['education', 'experience', 'certificates', 'projects', 'awards']:
+            flattened[key] = value
+
+    # Flatten education
     if candidate.get("education"):
-        candidate["education"] = "; ".join([f"{edu['degree']} from {edu['institution_name']} (GPA: {edu.get('gpa', 'N/A')})" for edu in candidate["education"]])
-    
-    # Flattening experience
+        try:
+            flattened["education"] = "; ".join([
+                f"{edu.get('degree', 'N/A')} from {edu.get('institution_name', 'N/A')} "
+                f"(GPA: {edu.get('gpa', 'N/A')})"
+                for edu in candidate["education"]
+            ])
+        except Exception:
+            flattened["education"] = str(candidate["education"])
+    else:
+        flattened["education"] = ""
+
+    # Flatten experience
     if candidate.get("experience"):
-        candidate["experience"] = "; ".join([f"{exp['job_title']} at {exp['company_name']}" for exp in candidate["experience"]])
-    
-    # Flattening certificates
+        try:
+            exp_details = []
+            for exp in candidate["experience"]:
+                exp_str = f"{exp.get('job_title', 'N/A')} at {exp.get('company_name', 'N/A')}"
+                if exp.get('start_time'):
+                    exp_str += f" ({exp['start_time']} - {exp.get('end_time', 'Present')})"
+                exp_details.append(exp_str)
+            flattened["experience"] = "; ".join(exp_details)
+        except Exception:
+            flattened["experience"] = str(candidate["experience"])
+    else:
+        flattened["experience"] = ""
+
+    # Flatten certificates
     if candidate.get("certificates"):
-        candidate["certificates"] = "; ".join([f"{cert['certificate_name']} (Level: {cert.get('certificate_point_level', 'N/A')})" for cert in candidate["certificates"]])
+        try:
+            flattened["certificates"] = "; ".join([
+                f"{cert.get('certificate_name', 'N/A')} "
+                f"(Level: {cert.get('certificate_point_level', 'N/A')})"
+                for cert in candidate["certificates"]
+            ])
+        except Exception:
+            flattened["certificates"] = str(candidate["certificates"])
     else:
-        candidate["certificates"] = ""  # Ensure this is an empty string if no certificates
+        flattened["certificates"] = ""
 
-    # Flattening projects
+    # Flatten projects
     if candidate.get("projects"):
-        candidate["projects"] = "; ".join([f"{proj['project_name']}: {', '.join(proj['detailed_descriptions'])}" for proj in candidate["projects"]])
+        try:
+            project_details = []
+            for proj in candidate["projects"]:
+                proj_str = f"{proj.get('project_name', 'N/A')}"
+                if proj.get('detailed_descriptions'):
+                    if isinstance(proj['detailed_descriptions'], list):
+                        proj_str += f": {', '.join(proj['detailed_descriptions'])}"
+                project_details.append(proj_str)
+            flattened["projects"] = "; ".join(project_details)
+        except Exception:
+            flattened["projects"] = str(candidate["projects"])
     else:
-        candidate["projects"] = ""  # Ensure this is an empty string if no projects
+        flattened["projects"] = ""
 
-    # Flattening awards
+    # Flatten awards
     if candidate.get("awards"):
-        candidate["awards"] = "; ".join([f"{award['award_name']} ({award.get('description', 'N/A')})" for award in candidate["awards"]])
+        try:
+            flattened["awards"] = "; ".join([
+                f"{award.get('award_name', 'N/A')} "
+                f"({award.get('description', 'N/A')})"
+                for award in candidate["awards"]
+            ])
+        except Exception:
+            flattened["awards"] = str(candidate["awards"])
     else:
-        candidate["awards"] = ""  # Ensure this is an empty string if no awards
+        flattened["awards"] = ""
 
-    return candidate
+    # Flatten skills if it's a list
+    if isinstance(flattened.get("skills"), list):
+        flattened["skills"] = ", ".join(flattened["skills"])
+
+    # Format dates if they exist
+    date_fields = ['date_of_birth']
+    for field in date_fields:
+        if field in flattened and flattened[field]:
+            try:
+                flattened[field] = flattened[field].strftime("%Y-%m-%d")
+            except:
+                pass
+
+    # Ensure all fields are string or simple types
+    for key, value in flattened.items():
+        if not isinstance(value, (str, int, float, bool, type(None))):
+            flattened[key] = str(value)
+
+    return flattened
 
 def search_candidates():
     st.title("Candidate Search")
@@ -55,38 +124,41 @@ def search_candidates():
                 st.success("Folders confirmed. You can now fill in the search fields.")
 
         if "selected_folders" in st.session_state:
+            # Fetch all filter options at once to avoid multiple API calls
+            def fetch_all_filter_options():
+                response = requests.post(  # Changed to POST
+                    f"{API_URL}/search/fetch_cv_info",
+                    json={"folder_names": st.session_state.selected_folders},  # Changed to json payload
+                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                )
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    st.error(f"Failed to fetch filter options. Status code: {response.status_code}")
+                    return {}
+
+            # Fetch all options once
+            filter_options = fetch_all_filter_options()
+
             with st.form("search_form"):
                 col1, col2, col3 = st.columns([1, 1, 1])
 
-                # Dynamically fetch options for filters from the API based on the selected folders
-                def fetch_filter_options(field):
-                    response = requests.get(
-                        f"{API_URL}/search/fetch_cv_info",
-                        params={"folder_names": st.session_state.selected_folders, "field": field},
-                        headers={"Authorization": f"Bearer {st.session_state.token}"}
-                    )
-                    if response.status_code == 200:
-                        return response.json().get(field, [])
-                    else:
-                        st.error(f"Failed to fetch {field} options.")
-                        return []
-
                 with col1:
-                    job_title = st.multiselect("Job Title", options=fetch_filter_options("job_titles"))
-                    industry = st.multiselect("Industry", options=fetch_filter_options("industries"))
-                    country = st.multiselect("Country", options=fetch_filter_options("countries"))
-                    degree = st.multiselect("Degree", options=fetch_filter_options("degrees"))
+                    job_title = st.multiselect("Job Title", options=filter_options.get("job_titles", []))
+                    industry = st.multiselect("Industry", options=filter_options.get("industries", []))
+                    country = st.multiselect("Country", options=filter_options.get("countries", []))
+                    degree = st.multiselect("Degree", options=filter_options.get("degrees", []))
                     yoe = st.number_input("Years of Experience (Min)", min_value=0, max_value=30, value=0)
 
                 with col2:
                     current_job = st.text_input("Current Job")
-                    city = st.multiselect("City", options=fetch_filter_options("cities"))
+                    city = st.multiselect("City", options=filter_options.get("cities", []))
                     language = st.text_input("Language")
-                    major = st.multiselect("Major", options=fetch_filter_options("majors"))
+                    major = st.multiselect("Major", options=filter_options.get("majors", []))
                     point = st.number_input("Points (Min)", min_value=0.0, max_value=10.0, value=0.0, step=0.5, format="%.2f")
 
                 with col3:
-                    skills = st.multiselect("Skills", options=fetch_filter_options("skills"))
+                    skills = st.multiselect("Skills", options=filter_options.get("skills", []))
                     level = st.text_input("Level")
                     age = st.number_input("Age (Min)", min_value=0, max_value=70, value=0)
 
@@ -120,9 +192,8 @@ def search_candidates():
                 if response.status_code == 200:
                     candidates = response.json()
                     if candidates:
-                        # Store the search results in session state to persist them across reruns
                         st.session_state.candidates = [flatten_nested_fields(candidate) for candidate in candidates]
-
+                        
     # Display search results if they exist
     if 'candidates' in st.session_state:
         candidates = st.session_state.candidates
